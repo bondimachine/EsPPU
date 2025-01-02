@@ -6,7 +6,7 @@ ESP32 based NES PPU (2C0x) replacement
 
 ESP32 Dev Kit V1 to 2C02 (assuming 3.3v levels)
 
-
+```
                    .--\/--.
 D13   --    R/W -> |01  40| -- +5V     -- Vin
 D15   -- CPU D0 <> |02  39| -> ALE     -- N/C
@@ -29,3 +29,4 @@ D35   --    CLK -> |18  23| -> /WR     -- N/C
 D32   --   /INT <+ |19  22| <- /RST    -- D34
 GND   --    GND -- |20  21| -> VOUT    -- D25
                    '------'
+```
