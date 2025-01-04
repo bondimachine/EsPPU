@@ -30,3 +30,5 @@ D32   --   /INT <+ |19  22| <- /RST    -- D34
 GND   --    GND -- |20  21| -> VOUT    -- D25
                    '------'
 ```
+
+TODO: CHR-ROM access (latch wih 373/374 or 573/574) 
