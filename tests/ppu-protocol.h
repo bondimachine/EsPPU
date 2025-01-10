@@ -1,19 +1,64 @@
 #include <Arduino.h>
 #include "pins.h"
 
-static const uint8_t dataPins[] = {PIN_D0, PIN_D1, PIN_D2, PIN_D3, PIN_D4, PIN_D5, PIN_D6, PIN_D7};
+#define REP0(X)
+#define REP1(X) X
+#define REP2(X) REP1(X) X
+#define REP3(X) REP2(X) X
+#define REP4(X) REP3(X) X
+#define REP5(X) REP4(X) X
+#define REP6(X) REP5(X) X
+#define REP7(X) REP6(X) X
+#define REP8(X) REP7(X) X
+#define REP9(X) REP8(X) X
+#define REP10(X) REP9(X) X
+
+#define REP(HUNDREDS,TENS,ONES,X) \
+  REP##HUNDREDS(REP10(REP10(X))) \
+  REP##TENS(REP10(X)) \
+  REP##ONES(X)
+
+static const uint32_t dataPinsMask = 
+    (1 << PIN_D0)
+    | (1 << PIN_D1)
+    | (1 << PIN_D2)
+    | (1 << PIN_D3)
+    | (1 << PIN_D4)
+    | (1 << PIN_D5)
+    | (1 << PIN_D6)
+    | (1 << PIN_D7);
 
 void setupPins() {
+    
+    setCpuFrequencyMhz(240);
+
     pinMode(PIN_RW, OUTPUT);
 
-    for (uint8_t pin = 0; pin < 8; pin++) {
-        pinMode(dataPins[pin], OUTPUT);
-    }
+    pinMode(PIN_D0, OUTPUT);
+    digitalWrite(PIN_D0, LOW);
+    pinMode(PIN_D1, OUTPUT);
+    digitalWrite(PIN_D1, LOW);
+    pinMode(PIN_D2, OUTPUT);
+    digitalWrite(PIN_D2, LOW);
+    pinMode(PIN_D3, OUTPUT);
+    digitalWrite(PIN_D3, LOW);
+    pinMode(PIN_D4, OUTPUT);
+    digitalWrite(PIN_D4, LOW);
+    pinMode(PIN_D5, OUTPUT);
+    digitalWrite(PIN_D5, LOW);
+    pinMode(PIN_D6, OUTPUT);
+    digitalWrite(PIN_D6, LOW);
+    pinMode(PIN_D7, OUTPUT);
+    digitalWrite(PIN_D7, LOW);
 
     pinMode(PIN_A0, OUTPUT);
+    digitalWrite(PIN_A0, LOW);
     pinMode(PIN_A1, OUTPUT);
+    digitalWrite(PIN_A1, LOW);
     pinMode(PIN_A2, OUTPUT);
+    digitalWrite(PIN_A2, LOW);
     pinMode(PIN_CS, OUTPUT);
+    digitalWrite(PIN_CS, HIGH);
 
     pinMode(PIN_CLK, OUTPUT);
 
@@ -21,40 +66,68 @@ void setupPins() {
 
 }
 
-void busAddr(uint16_t addr) {
-    digitalWrite(PIN_A0, addr & 1);
-    digitalWrite(PIN_A1, addr & 2);
-    digitalWrite(PIN_A2, addr & 4);
-    digitalWrite(PIN_CS, !(addr & 0x2000));
+#define SET_PINS(x) REG_WRITE(GPIO_OUT_W1TS_REG, x)
+#define CLEAR_PINS(x) REG_WRITE(GPIO_OUT_W1TC_REG, x)
+
+inline void busAddr(uint16_t addr) {
+
+    uint32_t toSet = ((addr & 1) << PIN_A0) 
+        | (((addr >> 1) & 1) << PIN_A1) 
+        | (((addr >> 2) & 1) << PIN_A2)
+        | ((!((addr >> 13) & 1)) << PIN_CS);
+
+    uint32_t toClear = ~toSet & (
+        (1 << PIN_A0 | 1 << PIN_A1 | 1 << PIN_A2 | 1 << PIN_CS));
+
+    SET_PINS(toSet);
+    CLEAR_PINS(toClear);
+
 }
 
 inline void busSetRead() {
-    digitalWrite(PIN_RW, 0);
+    CLEAR_PINS(1 << PIN_RW);
+    REG_WRITE(GPIO_ENABLE_W1TC_REG, dataPinsMask);
 }
 
-uint8_t busDataRead() {
-    uint8_t data = 0;
+inline uint8_t busDataRead() {
 
-    for (uint8_t pin = 0; pin < 8; pin++) {
-        data |= (digitalRead(dataPins[pin]) == HIGH) << pin;
-    }
+    uint32_t reg = REG_READ(GPIO_IN_REG);
+    uint8_t data = 
+        (reg >> PIN_D0 & 1)
+        | ((reg >> PIN_D1 & 1) << 1)
+        | ((reg >> PIN_D2 & 1) << 2)
+        | ((reg >> PIN_D3 & 1) << 3)
+        | ((reg >> PIN_D4 & 1) << 4)
+        | ((reg >> PIN_D5 & 1) << 5)
+        | ((reg >> PIN_D6 & 1) << 6)
+        | ((reg >> PIN_D7 & 1) << 7);
 
     return data;
 }
 
-void busDataWrite(uint8_t data) {
-    digitalWrite(PIN_RW, 1);
+inline void busDataWrite(uint8_t data) {
+    SET_PINS(1 << PIN_RW);
+    REG_WRITE(GPIO_ENABLE_W1TS_REG, dataPinsMask);
 
-    for (uint8_t pin = 0; pin < 8; pin++) {
-        digitalWrite(dataPins[pin], (data & (1 << pin)));
-    }
+    uint32_t toSet = ((data & 1) << PIN_D0) 
+        | (((data >> 1) & 1) << PIN_D1) 
+        | (((data >> 2) & 1) << PIN_D2)
+        | (((data >> 3) & 1) << PIN_D3)
+        | (((data >> 4) & 1) << PIN_D4)
+        | (((data >> 5) & 1) << PIN_D5)
+        | (((data >> 6) & 1) << PIN_D6)
+        | (((data >> 7) & 1) << PIN_D7);
+
+    uint32_t toClear = ~toSet & dataPinsMask;
+
+    SET_PINS(toSet);
+    CLEAR_PINS(toClear);
 }
 
-void busClock() {
-    digitalWrite(PIN_CLK, 1);
-    NOP();
-    delayMicroseconds(1);
-    digitalWrite(PIN_CLK, 0);
+inline void busClock() {
+    SET_PINS(1 << PIN_CLK);
+    __asm__ __volatile__ (REP(0, 6, 0, "nop; "));
+    CLEAR_PINS(1 << PIN_CLK);
 }
 
 
@@ -65,21 +138,22 @@ inline uint8_t busRead(uint16_t addr) {
     return busDataRead();
 }
 
-inline uint8_t busWrite(uint16_t addr, uint8_t data) {
+inline void busWrite(uint16_t addr, uint8_t data) {
     busAddr(addr);
     busDataWrite(data);
     busClock();
 };
 
-inline uint8_t ppuCtrl(uint8_t bits) {
-    return busWrite(0x2000, bits);
+inline void ppuCtrl(uint8_t bits) {
+    busWrite(0x2000, bits);
 }
 
-inline uint8_t ppuMask(uint8_t bits) {
-    return busWrite(0x2001, bits);
+inline void ppuMask(uint8_t bits) {
+    busWrite(0x2001, bits);
 }
 
 inline uint8_t ppuStatus() {
+    // reading PPU status resets the write pair for ppuAddr and ppuScroll
     return busRead(0x2002);
 }
 
@@ -96,7 +170,8 @@ inline void oamDataWrite(uint8_t data) {
 }
 
 inline void ppuScroll(uint8_t x, uint8_t y) {
-    busAddr(0x2006);
+    ppuStatus();
+    busAddr(0x2005);
     busDataWrite(x);
     busClock();
     busDataWrite(y);
@@ -105,6 +180,7 @@ inline void ppuScroll(uint8_t x, uint8_t y) {
 
 
 inline void ppuAddr(uint16_t addr) {
+    ppuStatus();
     busAddr(0x2006);
     busDataWrite((uint8_t)((addr >> 8) & 0xFF));
     busClock();
@@ -118,11 +194,6 @@ inline void ppuDataWrite(uint8_t data) {
 
 inline uint8_t ppuDataRead(uint8_t data) {
     return busRead(0x2007);
-}
-
-inline void ppuLatch(uint16_t addr) {
-    ppuStatus();
-    ppuAddr(addr);
 }
 
 void oamDma(uint8_t* data, uint8_t size) {
