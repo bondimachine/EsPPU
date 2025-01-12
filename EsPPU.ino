@@ -1,0 +1,90 @@
+#include <Arduino.h>
+#include "pins.h"
+#include "font.h"
+
+#define VIDEO_PIN   PIN_VOUT
+#define AUDIO_PIN   33
+
+#include "video_out.h"
+
+
+// this is dark magic that results of running this https://github.com/rossumur/esp_8_bit/blob/55eb7b86eda290d96b02c38c3e787efb8ae6a8c0/src/emu_nofrendo.cpp#L127 
+uint32_t nes_4_phase[64] = {
+    0x2C2C2C2C,0x241D1F26,0x221D2227,0x1F1D2426,0x1D1F2624,0x1D222722,0x1D24261F,0x1F26241D,
+    0x2227221D,0x24261F1D,0x26241D1F,0x27221D22,0x261F1D24,0x14141414,0x14141414,0x14141414,
+    0x38383838,0x2C25272E,0x2A252A2F,0x27252C2E,0x25272E2C,0x252A2F2A,0x252C2E27,0x272E2C25,
+    0x2A2F2A25,0x2C2E2725,0x2E2C2527,0x2F2A252A,0x2E27252C,0x1F1F1F1F,0x15151515,0x15151515,
+    0x45454545,0x3A33353C,0x3732373C,0x35333A3C,0x33353C3A,0x32373C37,0x333A3C35,0x353C3A33,
+    0x373C3732,0x3A3C3533,0x3C3A3335,0x3C373237,0x3C35333A,0x2B2B2B2B,0x16161616,0x16161616,
+    0x45454545,0x423B3D44,0x403B4045,0x3D3B4244,0x3B3D4442,0x3B404540,0x3B42443D,0x3D44423B,
+    0x4045403B,0x42443D3B,0x44423B3D,0x45403B40,0x443D3B42,0x39393939,0x17171717,0x17171717,
+};
+
+// PAL yuyv table, must be in RAM
+uint32_t _nes_yuv_4_phase_pal[] = {
+    0x31313131,0x2D21202B,0x2720252D,0x21212B2C,0x1D23302A,0x1B263127,0x1C293023,0x202B2D22,
+    0x262B2722,0x2C2B2122,0x2F2B1E23,0x31291F27,0x30251F2A,0x18181818,0x19191919,0x19191919,
+    0x3D3D3D3D,0x34292833,0x2F282D34,0x29283334,0x252B3732,0x232E392E,0x2431382B,0x28333429,
+    0x2D342F28,0x33342928,0x3732252A,0x392E232E,0x382B2431,0x24242424,0x1A1A1A1A,0x1A1A1A1A,
+    0x49494949,0x42373540,0x3C373B40,0x36374040,0x3337433F,0x3139433B,0x323D4338,0x35414237,
+    0x3B423D35,0x41413736,0x453F3238,0x473C313B,0x4639323F,0x2F2F2F2F,0x1A1A1A1A,0x1A1A1A1A,
+    0x49494949,0x48413D45,0x42404345,0x3D3F4644,0x3B3D4543,0x3B3E4542,0x3B42453F,0x3E47463E,
+    0x434A453E,0x46483E3D,0x4843393E,0x4A403842,0x4B403944,0x3E3E3E3E,0x1B1B1B1B,0x1B1B1B1B,
+    //odd
+    0x31313131,0x20212D2B,0x2520272D,0x2B21212C,0x30231D2A,0x31261B27,0x30291C23,0x2D2B2022,
+    0x272B2622,0x212B2C22,0x1E2B2F23,0x1F293127,0x1F25302A,0x18181818,0x19191919,0x19191919,
+    0x3D3D3D3D,0x28293433,0x2D282F34,0x33282934,0x372B2532,0x392E232E,0x3831242B,0x34332829,
+    0x2F342D28,0x29343328,0x2532372A,0x232E392E,0x242B3831,0x24242424,0x1A1A1A1A,0x1A1A1A1A,
+    0x49494949,0x35374240,0x3B373C40,0x40373640,0x4337333F,0x4339313B,0x433D3238,0x42413537,
+    0x3D423B35,0x37414136,0x323F4538,0x313C473B,0x3239463F,0x2F2F2F2F,0x1A1A1A1A,0x1A1A1A1A,
+    0x49494949,0x3D414845,0x43404245,0x463F3D44,0x453D3B43,0x453E3B42,0x45423B3F,0x46473E3E,
+    0x454A433E,0x3E48463D,0x3943483E,0x38404A42,0x39404B44,0x3E3E3E3E,0x1B1B1B1B,0x1B1B1B1B,
+};
+
+uint8_t** back_buffer_lines;
+
+volatile bool frame_ready = false;
+volatile bool new_frame = false;
+
+void on_frame() {
+    if(new_frame) {
+      new_frame = false;
+      uint8_t** current = _lines;
+      _lines = back_buffer_lines;
+      back_buffer_lines = current;
+      frame_ready = true;
+    }
+}
+
+void setup() {
+    setCpuFrequencyMhz(240);
+    Serial.begin(115200);
+
+    uint8_t* _front_buffer = (uint8_t*)calloc(240*256, 1);
+    uint8_t* _back_buffer = (uint8_t*)calloc(240*256, 1);
+    _lines = (uint8_t**) malloc(240 * sizeof(uint8_t*));
+    back_buffer_lines = (uint8_t**) malloc(240 * sizeof(uint8_t*));
+    for (int y = 0; y < 240; y++) {
+      _lines[y] = _front_buffer + y*256;
+      back_buffer_lines[y] = _back_buffer + y*256;
+    }
+
+    char* msg = "Welcome to EsPPU";
+    for(int x = 0; x < strlen(msg); x++) {
+      draw_char(_lines, msg[x], x+13, 15, 0x30, 0x0E);
+    }
+
+    video_init(nes_4_phase, 64, true);
+    // xTaskCreatePinnedToCore(video_render_task, "video_render", 3*1024, NULL, 0, NULL, 0);
+    frame_ready = true;
+}
+
+void loop() {
+
+  // TODO: poll for commands
+
+  // TODO: nmi if enabled when frame_ready
+
+  // mark when new_frame is ready with  new_frame = true;
+
+}
