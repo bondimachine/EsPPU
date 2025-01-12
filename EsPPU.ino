@@ -2,7 +2,6 @@
 #include "pins.h"
 #include "font.h"
 
-#define VIDEO_PIN   PIN_VOUT
 #define AUDIO_PIN   33
 
 #include "video_out.h"
