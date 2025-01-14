@@ -1,0 +1,45 @@
+PPUCTRL
+
+7  bit  0
+---- ----
+  HB SINN
+  || ||||
+  || ||++- Base nametable address
+  || ||    (0 = $2000; 1 = $2400; 2 = $2800; 3 = $2C00)
+  || |+--- VRAM address increment per CPU read/write of PPUDATA
+  || |     (0: add 1, going across; 1: add 32, going down)
+  || +---- Sprite pattern table address for 8x8 sprites
+  ||       (0: $0000; 1: $1000; ignored in 8x16 mode)
+  |+------ Background pattern table address (0: $0000; 1: $1000)
+  +------- Sprite size (0: 8x8 pixels; 1: 8x16 pixels – see PPU OAM#Byte 1)
+
+PPUMASK
+
+7  bit  0
+---- ----
+BGRs bMmG
+|||| ||||
+|||| |||+- Greyscale (0: normal color, 1: greyscale)
+|||| ||+-- 1: Show background in leftmost 8 pixels of screen, 0: Hide
+|||| |+--- 1: Show sprites in leftmost 8 pixels of screen, 0: Hide
+|||| +---- 1: Enable background rendering
+|||+------ 1: Enable sprite rendering
+||+------- Emphasize red (green on PAL/Dendy)
+|+-------- Emphasize green (red on PAL/Dendy)
++--------- Emphasize blue
+
+
+
+- Rendering as a whole is enabled as long as one or both of sprite and background rendering is enabled in PPUMASK. If one component is enabled and the other is not, the disabled component is simply treated as transparent
+- Both off => disable NMI?
+- Picture region of 256x240 pixels and a border region extending 16 pixels left, 11 pixels right, and 2 pixels down (283x242)
+- In the border and any transparent pixel => palette 0.
+- Greyscale mode forces all colors to be a shade of grey or white. This is done by bitwise ANDing the color with $30
+- PPUSTATUS => Clearing the PPU's internal w register. PPUSCROLL and PPUADDR position. Also vblank flag
+- Sprite 0 hit => The sprite 0 hit flag is immediately set when any opaque pixel of sprite 0 overlaps any opaque pixel of background, regardless of sprite priority. 'Opaque' means that the pixel is not 'transparent' — that is, its two pattern bits are not %00. The flag stays set until dot 1 of the prerender scanline
+- Sprite overflow not supported
+
+
+
+
+
