@@ -1,10 +1,17 @@
 #include <Arduino.h>
 #include "pins.h"
 #include "font.h"
+#include <LittleFS.h>
 
 #define AUDIO_PIN   33
 
 #include "video_out.h"
+#include "nes_ppu.h"
+
+volatile uint32_t command_buffer[COMMAND_BUFFER_SIZE];
+volatile uint32_t command_buffer_write_index = 0xFFFFFFFF; // we increment first, then write
+volatile uint32_t command_buffer_read_index = 0xFFFFFFFF;
+
 
 
 // this is dark magic that results of running this https://github.com/rossumur/esp_8_bit/blob/55eb7b86eda290d96b02c38c3e787efb8ae6a8c0/src/emu_nofrendo.cpp#L127 
@@ -40,24 +47,72 @@ uint32_t _nes_yuv_4_phase_pal[] = {
     0x454A433E,0x3E48463D,0x3943483E,0x38404A42,0x39404B44,0x3E3E3E3E,0x1B1B1B1B,0x1B1B1B1B,
 };
 
+static const uint8_t dataPins[] = {PIN_D0, PIN_D1, PIN_D2, PIN_D3, PIN_D4, PIN_D5, PIN_D6, PIN_D7};
+static const uint8_t addressPins[] = {PIN_A0, PIN_A1, PIN_A2};
+
+extern void* ld_include_xt_nmi;
+
 uint8_t** back_buffer_lines;
 
-volatile bool frame_ready = false;
 volatile bool new_frame = false;
 
-void on_frame() {
-    if(new_frame) {
-      new_frame = false;
-      uint8_t** current = _lines;
-      _lines = back_buffer_lines;
-      back_buffer_lines = current;
-      frame_ready = true;
+volatile uint32_t frame_count = 0;
+
+void on_frame() {    
+    // this is on ISR so we don't do much work here
+    uint8_t** current = _lines;
+    _lines = back_buffer_lines;
+    back_buffer_lines = current;
+    new_frame = true;
+}
+
+char* msg = "Welcome to EsPPU";
+void render_welcome() {
+    int len = strlen(msg);
+    int center = (42 - len) / 2;
+    for(int x = 0; x < len; x++) {
+      draw_char(_lines, msg[x], x+center, 15, 0x30, 0x0E);
+      draw_char(back_buffer_lines, msg[x], x+center, 15, 0x30, 0x0E);
     }
 }
+
 
 void setup() {
     setCpuFrequencyMhz(240);
     Serial.begin(115200);
+    Serial.println("EsPPU");
+
+    pinMode(PIN_RW, INPUT);
+    pinMode(PIN_INT, OUTPUT_OPEN_DRAIN);
+    digitalWrite(PIN_INT, HIGH);
+    
+    for (uint8_t pin = 0; pin < 8; pin++) {
+      pinMode(dataPins[pin], INPUT);
+    }
+
+    for (uint8_t pin = 0; pin < 3; pin++) {
+      pinMode(addressPins[pin], INPUT);
+    }
+
+    pinMode(PIN_CS, INPUT);
+
+    pinMode(PIN_CLK, INPUT);
+
+
+    gpio_config_t io_conf = {
+        .pin_bit_mask = (1ULL << PIN_CLK),
+        .mode = GPIO_MODE_INPUT,
+        .pull_up_en = GPIO_PULLUP_DISABLE,
+        .pull_down_en = GPIO_PULLDOWN_DISABLE,
+        .intr_type = GPIO_INTR_POSEDGE
+    };
+
+    gpio_config(&io_conf);
+
+    // the 14 comes from here https://github.com/espressif/esp-idf/blob/0f0068fff3ab159f082133aadfa9baf4fc0c7b8d/components/esp_hw_support/port/esp32/esp_cpu_intr.c#L170 
+
+    intr_matrix_set(1, ETS_GPIO_INTR_SOURCE, 14);
+    ESP_INTR_ENABLE( 14 );
 
     uint8_t* _front_buffer = (uint8_t*)calloc(240*256, 1);
     uint8_t* _back_buffer = (uint8_t*)calloc(240*256, 1);
@@ -68,22 +123,92 @@ void setup() {
       back_buffer_lines[y] = _back_buffer + y*256;
     }
 
-    char* msg = "Welcome to EsPPU";
-    for(int x = 0; x < strlen(msg); x++) {
-      draw_char(_lines, msg[x], x+13, 15, 0x30, 0x0E);
+    if (!LittleFS.begin(false)) {
+      msg = "LittleFS Mount Failed";
+      Serial.println(msg);
     }
 
+    File chr_file = LittleFS.open("/test.chr");
+
+    if (!chr_file) {
+      msg = "can't open test.chr";
+      Serial.println(msg);
+    }
+
+    int x = 0;
+    while(chr_file.available()) {
+      chr[x++] = chr_file.read();
+    }
+
+    render_welcome();
+
     video_init(nes_4_phase, 64, true);
-    // xTaskCreatePinnedToCore(video_render_task, "video_render", 3*1024, NULL, 0, NULL, 0);
-    frame_ready = true;
+}
+
+void render_new_frame() {
+
+  if (!(sprite_rendering || background_rendering)) {
+    render_welcome();
+    return;
+  }
+
+  for (int y = 0; y < 240; y++) {
+    nes_ppu_scanline(back_buffer_lines[y], y);
+  }
+
 }
 
 void loop() {
 
-  // TODO: poll for commands
+    if (new_frame) {
 
-  // TODO: nmi if enabled when frame_ready
+      new_frame = false;
 
-  // mark when new_frame is ready with  new_frame = true;
+      render_new_frame();
 
+      frame_count++;
+      if(frame_count == 60) {
+        Serial.print("buffer ");
+        Serial.print(command_buffer_write_index + 1);
+        Serial.print(" delta ");
+        Serial.println(command_buffer_write_index - command_buffer_read_index);
+        frame_count = 0;
+      }
+
+      if (nmi_output) {
+        // digitalWrite(PIN_INT, LOW);
+      }
+
+    }  
+
+    if (command_buffer_read_index != command_buffer_write_index) {
+
+      // TODO: we've got to do something about read commands, we can't answer whenver we want...
+
+      uint32_t reg = command_buffer[(++command_buffer_read_index) % COMMAND_BUFFER_SIZE];
+
+      uint16_t address = 0x2000
+        | (reg >> PIN_A0 & 1)
+        | ((reg >> PIN_A1 & 1) << 1)
+        | ((reg >> PIN_A2 & 1) << 2);
+
+      uint8_t data = 
+        (reg >> PIN_D0 & 1)
+        | ((reg >> PIN_D1 & 1) << 1)
+        | ((reg >> PIN_D2 & 1) << 2)
+        | ((reg >> PIN_D3 & 1) << 3)
+        | ((reg >> PIN_D4 & 1) << 4)
+        | ((reg >> PIN_D5 & 1) << 5)
+        | ((reg >> PIN_D6 & 1) << 6)
+        | ((reg >> PIN_D7 & 1) << 7);  
+
+      bool write = (reg & (1 << PIN_RW));
+
+      nes_ppu_command(address, data, write);
+
+      if (nmi_clear) {
+        nmi_clear = false;
+        // digitalWrite(PIN_INT, HIGH);
+      }
+    }
 }

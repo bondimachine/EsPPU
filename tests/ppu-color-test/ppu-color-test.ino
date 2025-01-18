@@ -51,7 +51,9 @@ void setup() {
     Serial.begin(115200);
 
     setupPins();
-    // we don't have an actual DMA, so no need to copy oam_fill
+    
+    // setup oam (this is different from what original code does)
+    oamDma(oam_fill, 23*4);
 
     // setup default palettes
     Serial.println("setup default palettes");
@@ -62,7 +64,7 @@ void setup() {
         }
     }
 
-	  //setup nametable
+	//setup nametable
     Serial.println("setup nametable");
 	ppuAddr(0x2000);
     for(uint8_t y = 16; y > 0; y--) {
@@ -74,7 +76,13 @@ void setup() {
     // start NMI
     attachInterrupt(digitalPinToInterrupt(PIN_INT), onNMI, FALLING);
     Serial.println("start nmi");
-    ppuCtrl(0x80);  
+    ppuCtrl(0x80);
+
+    ppuMask(ppu_emphasis);
+
+    Serial.print("setup clocks: ");
+    Serial.print(clockCount);
+
 }
 
 volatile uint32_t frame_count = 0;
@@ -84,7 +92,9 @@ void loop() {
         frame = false;
         if ((frame_count % 60) == 1) {
             Serial.print("frame ");
-            Serial.println(frame_count);
+            Serial.print(frame_count);
+            Serial.print(" clocks: ");
+            Serial.println(clockCount);
         }
 
         // update sprites

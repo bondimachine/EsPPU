@@ -47,6 +47,9 @@ GND   --    GND -- |20  21| -> VOUT    -- D25
 #define PIN_RST 14
 #define PIN_VOUT 25
 
+// this has nothing to do here, but it is a single line to share with assembly
+#define COMMAND_BUFFER_SIZE 8192
+
 
 #endif
 

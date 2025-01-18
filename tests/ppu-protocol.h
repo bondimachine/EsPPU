@@ -28,6 +28,8 @@ static const uint32_t dataPinsMask =
     | (1 << PIN_D6)
     | (1 << PIN_D7);
 
+uint32_t clockCount = 0;
+
 void setupPins() {
     
     setCpuFrequencyMhz(240);
@@ -128,6 +130,7 @@ inline void busClock() {
     SET_PINS(1 << PIN_CLK);
     __asm__ __volatile__ (REP(0, 6, 0, "nop; "));
     CLEAR_PINS(1 << PIN_CLK);
+    clockCount++;
 }
 
 
