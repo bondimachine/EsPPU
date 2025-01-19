@@ -166,8 +166,8 @@ void loop() {
         }
 
         // redraw sprites
-        *oam_tile_ch = (color << 4) | 0xA0;
-        *oam_tile_cl = color & 0x0F;
+        *oam_tile_ch = (color >> 4) | 0xA0;
+        *oam_tile_cl = (color & 0x0F) | 0xA0;
         *oam_tile_b = ((ppu_emphasis >> 2) & 1) | 0xA0;
         *oam_tile_g = ((ppu_emphasis >> 3) & 1) | 0xA0;
         *oam_tile_r = ((ppu_emphasis >> 4) & 1) | 0xA0;
