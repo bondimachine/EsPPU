@@ -83,6 +83,9 @@ void setup() {
     Serial.print("setup clocks: ");
     Serial.print(clockCount);
 
+    busDataWrite(0);
+    busAddr(0);
+
 }
 
 volatile uint32_t frame_count = 0;
@@ -122,6 +125,8 @@ void loop() {
         // set emphasis
         ppuMask(ppu_emphasis);
 
+        busDataWrite(0);
+        busAddr(0);
     }
 
     if (Serial.available() > 0) {

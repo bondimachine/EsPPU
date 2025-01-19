@@ -199,9 +199,13 @@ inline uint8_t ppuDataRead(uint8_t data) {
     return busRead(0x2007);
 }
 
-void oamDma(uint8_t* data, uint8_t size) {
-    for (uint8_t i = 0; i < size; i++) {
+void oamDma(uint8_t* data, uint16_t size) {
+    for (uint16_t i = 0; i < size; i++) {
         oamAddr(i);
         oamDataWrite(data[i]);
+    }
+    for (uint16_t i = size; i < 256; i++) {
+        oamAddr(i);
+        oamDataWrite(0);
     }
 }

@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include <stdio.h>
 
 uint8_t oam[256];
 uint8_t oam_addr = 0;
@@ -42,22 +43,22 @@ inline void nes_ppu_scanline(uint8_t* buf, int y) {
 
     if(background_rendering) {
         // TODO: background
-        for (int x = 0; x < 240; x++) {
+        // Fetch a nametable entry from nametable_address.
+        // Fetch the corresponding attribute table entry from nametable_address + $03C0 and increment the current VRAM address within the same row.
+        // Fetch the low-order byte of an 8x1 pixel sliver of pattern table from $0000-$0FF7 or $1000-$1FF7.
+        // Fetch the high-order byte of this sliver from an address 8 bytes higher.
+        // Turn the attribute data and the pattern table data into palette indices, and combine them with data from sprite data using priority.
+        
+        for (int x = 0; x < 256; x++) {
             buf[x] = palette[0];
         }
     } else {
         // universal background
-        for (int x = 0; x < 240; x++) {
+        for (int x = 0; x < 256; x++) {
             buf[x] = palette[0];
         }
     }
 
-    // Fetch a nametable entry from nametable_address.
-    // Fetch the corresponding attribute table entry from nametable_address + $03C0 and increment the current VRAM address within the same row.
-    // Fetch the low-order byte of an 8x1 pixel sliver of pattern table from $0000-$0FF7 or $1000-$1FF7.
-    // Fetch the high-order byte of this sliver from an address 8 bytes higher.
-    // Turn the attribute data and the pattern table data into palette indices, and combine them with data from sprite data using priority.
-    
     // sprites start at line 1
     if (y == 0 || !sprite_rendering) {
       return;
@@ -66,9 +67,12 @@ inline void nes_ppu_scanline(uint8_t* buf, int y) {
     uint8_t sprites_found = 0;
 
     // priority goes from last to first
-    for(int sprite = 63; sprite >= 0 && sprites_found < 8; sprite++) {
-      struct oam_entry* oamsprite = ((struct oam_entry*)oam + sprite*4);
-      if (oamsprite->y > y && y <= (oamsprite->y + sprite_height)) {
+    for(int sprite = 63; sprite >= 0 && sprites_found < 8; sprite--) {
+      struct oam_entry* oamsprite = (struct oam_entry*)(oam + sprite*4);
+      if (oamsprite->y < y && y <= (oamsprite->y + sprite_height)) {
+
+        // printf("%d %d %d\n", y, sprite, oamsprite->y);
+
         sprites_found++;
 
         // 1 - fetch the sprite from CHR
@@ -107,7 +111,7 @@ inline void nes_ppu_scanline(uint8_t* buf, int y) {
             continue;
           }
           
-          uint8_t palette_idx = (left_plane_line & (1 << x) << 1) | right_plane_line & (1 << x);
+          uint8_t palette_idx = (right_plane_line >> (7-x) & 1) << 1 | (left_plane_line >> (7-x) & 1);
           if (palette_idx) {
             // TODO: background priority
             uint8_t pixel_color = sprite_palette[palette_idx];
@@ -168,7 +172,7 @@ inline uint8_t nes_ppu_command(uint16_t address, uint8_t data, bool write) {
         case 0x2004:
             // OAMDATA
             if (write) {
-                oam[oam_addr++] = data;
+                oam[oam_addr] = data;
             }
             break;
         case 0x2005:

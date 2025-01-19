@@ -1,10 +1,10 @@
-default: colortest.ppm
+default: oamtest.ppm
 
-colortest: colortest.cpp
-	g++ colortest.cpp -o colortest
+oamtest: oamtest.cpp
+	g++ oamtest.cpp -o oamtest
 
-colortest.ppm: colortest
-	./colortest > colortest.ppm
+oamtest.ppm: oamtest
+	./oamtest
 
 clean:
 	-rm -f colortest
