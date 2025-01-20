@@ -46,9 +46,19 @@ volatile bool frame = false;
 
 void IRAM_ATTR onNMI(); // forward
 
+#define PIN_LF 26
+#define PIN_RT 33
+#define PIN_UP 35
+#define PIN_DN 34
+
 void setup() {
     
     Serial.begin(115200);
+
+    pinMode(PIN_LF, INPUT);
+    pinMode(PIN_RT, INPUT);
+    pinMode(PIN_UP, INPUT); 
+    pinMode(PIN_DN, INPUT);
 
     setupPins();
     
@@ -90,6 +100,8 @@ void setup() {
 
 volatile uint32_t frame_count = 0;
 
+bool debounce = false;
+
 void loop() {
     if (frame) {
         frame = false;
@@ -129,6 +141,41 @@ void loop() {
         busAddr(0);
     }
 
+    bool updated = false;
+
+  
+    if (digitalRead(PIN_LF) == LOW) {
+        if (!debounce) {
+          color = ((color - 1) & 0x0F) | (color & 0x30);
+          Serial.println("left");
+          updated = true;
+          debounce = true;
+        }
+    } else if (digitalRead(PIN_RT) == LOW) {
+        if (!debounce) {
+          color = ((color + 1) & 0x0F) | (color & 0x30);
+          Serial.println("right");
+          updated = true;
+          debounce = true;
+        }
+    } else if (digitalRead(PIN_UP) == LOW) {
+        if (!debounce) {
+          color = ((color + 0xF0) & 0x3F);
+          Serial.println("up");
+          updated = true;
+          debounce = true;
+        }  
+    } else if (digitalRead(PIN_DN) == LOW) {
+        if (!debounce) {
+          color = ((color + 0x10) & 0x3F);
+          Serial.println("down");
+          updated = true; 
+          debounce = true;
+        }  
+    } else {
+      debounce = false;
+    }
+
     if (Serial.available() > 0) {
         switch(Serial.read()) {
             case 'w':
@@ -165,6 +212,10 @@ void loop() {
                 return;    
         }
 
+        updated = true;
+    }
+
+    if (updated) {
         // redraw sprites
         *oam_tile_ch = (color >> 4) | 0xA0;
         *oam_tile_cl = (color & 0x0F) | 0xA0;
@@ -177,6 +228,7 @@ void loop() {
         Serial.print(color, HEX);
         Serial.print(" emphasis: ");
         Serial.println(ppu_emphasis, HEX);
+        frame = true;      
     }
 
 }

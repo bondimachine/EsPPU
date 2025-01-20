@@ -43,6 +43,9 @@ inline void nes_ppu_scanline(uint8_t* buf, int y) {
 
     if(background_rendering) {
         // TODO: background
+
+        // Each byte in the nametable controls one 8x8 pixel character cell, and each nametable has 30 rows of 32 tiles each, for 960 ($3C0) bytes; 
+        // the 64 ($40) remaining bytes are used by each nametable's attribute table. 
         // Fetch a nametable entry from nametable_address.
         // Fetch the corresponding attribute table entry from nametable_address + $03C0 and increment the current VRAM address within the same row.
         // Fetch the low-order byte of an 8x1 pixel sliver of pattern table from $0000-$0FF7 or $1000-$1FF7.
