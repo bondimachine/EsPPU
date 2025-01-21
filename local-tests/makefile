@@ -6,6 +6,13 @@ oamtest: oamtest.cpp
 oamtest.ppm: oamtest
 	./oamtest
 
+nametabletest: nametabletest.cpp
+	g++ nametabletest.cpp -o nametabletest
+
+nametabletest.ppm: nametabletest
+	./nametabletest
+
 clean:
-	-rm -f colortest
-	-rm -f colortest.ppm
+	-rm -f oamtest
+	-rm -f nametabletest
+	-rm -f *.ppm

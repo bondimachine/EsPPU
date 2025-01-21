@@ -14,7 +14,7 @@ uint8_t palette[32];
 uint8_t vram_step = 1;
 bool write_latch = false;
 
-uint16_t nametable_address = 0x2000;
+uint16_t nametable_address = 0;
 uint16_t sprite_8x8_pattern_address = 0;
 uint16_t background_pattern_address = 0;
 uint8_t sprite_height = 8;
@@ -38,23 +38,46 @@ struct __attribute__((packed)) oam_entry {
   uint8_t x;
 };
 
+inline uint8_t pixel_palette_idx(uint8_t right_plane_line, uint8_t left_plane_line, uint8_t x) {
+    return (right_plane_line >> (7-x) & 1) << 1 | (left_plane_line >> (7-x) & 1);
+}
 
 inline void nes_ppu_scanline(uint8_t* buf, int y) {
 
     if(background_rendering) {
-        // TODO: background
 
-        // Each byte in the nametable controls one 8x8 pixel character cell, and each nametable has 30 rows of 32 tiles each, for 960 ($3C0) bytes; 
-        // the 64 ($40) remaining bytes are used by each nametable's attribute table. 
-        // Fetch a nametable entry from nametable_address.
-        // Fetch the corresponding attribute table entry from nametable_address + $03C0 and increment the current VRAM address within the same row.
-        // Fetch the low-order byte of an 8x1 pixel sliver of pattern table from $0000-$0FF7 or $1000-$1FF7.
-        // Fetch the high-order byte of this sliver from an address 8 bytes higher.
-        // Turn the attribute data and the pattern table data into palette indices, and combine them with data from sprite data using priority.
-        
-        for (int x = 0; x < 256; x++) {
-            buf[x] = palette[0];
+        uint8_t row = y / 8;
+        for (uint8_t col = 0; col < 32; col++) {
+            uint8_t tile_index = vram[nametable_address + (row * 32) + col];
+
+            uint8_t attribute = vram[nametable_address + 0x03C0 + ((row / 4) * 8) + col / 4];
+
+            uint8_t* tile = chr + background_pattern_address + tile_index * 16;
+            uint8_t line = (y % 8);
+
+            uint8_t right_plane_line = tile[line];
+            uint8_t left_plane_line = tile[line + 8];
+
+            // I know there is a bitwise way to figure this, but I got enough for the moment
+            uint8_t attribute_shift = (col % 4) < 2 ? 0 : 2;
+            if ((row % 4) >= 2) { 
+                attribute_shift += 4;
+            }
+            uint8_t tile_palete_idx = (attribute >> attribute_shift) & 0b11;
+            uint8_t* tile_palette = palette + tile_palete_idx * 4;
+
+            uint8_t base_x = col*8;
+
+            for (uint8_t x = 0; x < 8; x++) {
+                uint8_t pixel = pixel_palette_idx(left_plane_line, right_plane_line, x);
+                if (pixel) {
+                    buf[base_x + x] = tile_palette[pixel];
+                } else {
+                    buf[base_x + x] = palette[0];
+                }                
+            }
         }
+
     } else {
         // universal background
         for (int x = 0; x < 256; x++) {
@@ -114,7 +137,7 @@ inline void nes_ppu_scanline(uint8_t* buf, int y) {
             continue;
           }
           
-          uint8_t palette_idx = (right_plane_line >> (7-x) & 1) << 1 | (left_plane_line >> (7-x) & 1);
+          uint8_t palette_idx = pixel_palette_idx(right_plane_line, left_plane_line, x);
           if (palette_idx) {
             // TODO: background priority
             uint8_t pixel_color = sprite_palette[palette_idx];
@@ -133,7 +156,7 @@ inline uint8_t nes_ppu_command(uint16_t address, uint8_t data, bool write) {
         case 0x2000:
             // PPUCTRL
             if (write) {
-                nametable_address = 0x2000 + 0x0400 * (data & 3); // this is some shift but I'm being lazy
+                nametable_address = 0x0400 * (data & 3); // this is some shift but I'm being lazy
                 vram_step = data & (1 << 2) ? 32 : 1;
                 sprite_8x8_pattern_address = data & (1 << 3) ? 0x1000 : 0;
                 background_pattern_address = data & (1 << 4) ? 0x1000 : 0;
