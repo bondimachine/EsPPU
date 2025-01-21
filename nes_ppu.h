@@ -141,7 +141,7 @@ inline uint8_t nes_ppu_command(uint16_t address, uint8_t data, bool write) {
                 nmi_output = data & (1 << 7);
 
                 if (!nmi_output) {
-                    nmi_clear = false;
+                    nmi_clear = true;
                 }
             }
             break;
@@ -162,7 +162,7 @@ inline uint8_t nes_ppu_command(uint16_t address, uint8_t data, bool write) {
         case 0x2002:
             // PPUSTATUS
             if (!write) {
-                nmi_clear = false;
+                nmi_clear = true;
             }
             write_latch = false;
             break;

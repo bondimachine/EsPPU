@@ -61,7 +61,7 @@ void setup() {
     pinMode(PIN_DN, INPUT);
 
     setupPins();
-    
+
     // setup oam (this is different from what original code does)
     oamDma(oam_fill, 23*4);
 
@@ -95,6 +95,7 @@ void setup() {
 
     busDataWrite(0);
     busAddr(0);
+    busSetRead();
 
 }
 
@@ -120,12 +121,9 @@ void loop() {
         ppuDataWrite(color);
 
         // set foreground color
-        uint8_t foreground = 0x30;
-        if (color <= 0x20) {
-            if((ppu_emphasis & 1) || (color & 0x0F) < 0x0E) {
-                // if not in greyscale mode, E/F columns are all black
-                foreground = 0x0F;
-            }
+        uint8_t foreground = 0x1F;
+        if (color < 0x10 || ((color % 0x10) >= 0xD)) {
+            foreground = 0x30;
         }
 
         ppuAddr(0x3F13);
@@ -139,6 +137,7 @@ void loop() {
 
         busDataWrite(0);
         busAddr(0);
+        busSetRead();
     }
 
     bool updated = false;
@@ -228,7 +227,6 @@ void loop() {
         Serial.print(color, HEX);
         Serial.print(" emphasis: ");
         Serial.println(ppu_emphasis, HEX);
-        frame = true;      
     }
 
 }

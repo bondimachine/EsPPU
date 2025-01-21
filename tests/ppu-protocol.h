@@ -35,6 +35,7 @@ void setupPins() {
     setCpuFrequencyMhz(240);
 
     pinMode(PIN_RW, OUTPUT);
+    digitalWrite(PIN_RW, LOW);
 
     pinMode(PIN_D0, OUTPUT);
     digitalWrite(PIN_D0, LOW);
@@ -63,6 +64,7 @@ void setupPins() {
     digitalWrite(PIN_CS, HIGH);
 
     pinMode(PIN_CLK, OUTPUT);
+    digitalWrite(PIN_CLK, LOW);
 
     pinMode(PIN_INT, INPUT);
 

@@ -98,7 +98,6 @@ void setup() {
 
     pinMode(PIN_CLK, INPUT);
 
-
     gpio_config_t io_conf = {
         .pin_bit_mask = (1ULL << PIN_CLK),
         .mode = GPIO_MODE_INPUT,
@@ -110,9 +109,10 @@ void setup() {
     gpio_config(&io_conf);
 
     // the 14 comes from here https://github.com/espressif/esp-idf/blob/0f0068fff3ab159f082133aadfa9baf4fc0c7b8d/components/esp_hw_support/port/esp32/esp_cpu_intr.c#L170 
-
-    intr_matrix_set(1, ETS_GPIO_INTR_SOURCE, 14);
+    intr_matrix_set(xPortGetCoreID(), ETS_GPIO_INTR_SOURCE, 14);
     ESP_INTR_ENABLE( 14 );
+
+    // xTaskCreatePinnedToCore(init_intr, "init_intr", 1024, NULL, 0, NULL, 0);
 
     uint8_t* _front_buffer = (uint8_t*)calloc(240*256, 1);
     uint8_t* _back_buffer = (uint8_t*)calloc(240*256, 1);
@@ -176,7 +176,7 @@ void loop() {
       }
 
       if (nmi_output) {
-        // digitalWrite(PIN_INT, LOW);
+        digitalWrite(PIN_INT, LOW);
       }
 
     }  
@@ -206,9 +206,48 @@ void loop() {
 
       nes_ppu_command(address, data, write);
 
-      if (nmi_clear) {
-        nmi_clear = false;
-        // digitalWrite(PIN_INT, HIGH);
-      }
+    }
+
+    if (nmi_clear) {
+      nmi_clear = false;
+      digitalWrite(PIN_INT, HIGH);
     }
 }
+
+/*
+void init_intr(void* ignored) {
+    vTaskDelete( NULL );
+}
+
+void poll_bus(void* ignored) {
+  for(;;) {
+
+    uint32_t reg = REG_READ(GPIO_IN_REG);
+
+    if (reg & (1 << PIN_CLK) && !(reg & (1 << PIN_CS))) {
+
+        uint16_t address = 0x2000
+          | (reg >> PIN_A0 & 1)
+          | ((reg >> PIN_A1 & 1) << 1)
+          | ((reg >> PIN_A2 & 1) << 2);
+
+        uint8_t data = 
+          (reg >> PIN_D0 & 1)
+          | ((reg >> PIN_D1 & 1) << 1)
+          | ((reg >> PIN_D2 & 1) << 2)
+          | ((reg >> PIN_D3 & 1) << 3)
+          | ((reg >> PIN_D4 & 1) << 4)
+          | ((reg >> PIN_D5 & 1) << 5)
+          | ((reg >> PIN_D6 & 1) << 6)
+          | ((reg >> PIN_D7 & 1) << 7);  
+
+        bool write = (reg & (1 << PIN_RW));
+
+        nes_ppu_command(address, data, write);
+
+        command_buffer_read_index++;
+
+      }    
+    }
+}
+*/
