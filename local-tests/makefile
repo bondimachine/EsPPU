@@ -13,7 +13,7 @@ nametabletest001.ppm: nametabletest
 	./nametabletest
 
 nametabletest.mp4: nametabletest001.ppm
-	ffmpeg -r 10 -f image2 -s 256x240 -i nametabletest%03d.ppm -vcodec libx264 -crf 1  -pix_fmt yuv422p nametabletest.mp4
+	ffmpeg -r 10 -f image2 -s 256x240 -i nametabletest%03d.ppm -vcodec libx264 -crf 1  -pix_fmt yuv420p nametabletest.mp4
 
 clean:
 	-rm -f oamtest
