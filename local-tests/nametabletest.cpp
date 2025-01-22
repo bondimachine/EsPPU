@@ -31,7 +31,7 @@ unsigned char YUV[192] = {
 };
 
 
-unsigned char nametable[] = {
+unsigned char nametable1[] = {
 	0x24, 0x24, 0x24, 0x24, 0x24, 0x24, 0x24, 0x24, 
 	0x24, 0x24, 0x24, 0x24, 0x24, 0x24, 0x24, 0x24, 
 	0x24, 0x24, 0x24, 0x24, 0x24, 0x24, 0x24, 0x24, 
@@ -158,8 +158,6 @@ unsigned char nametable[] = {
 	0xb6, 0xb7, 0xb6, 0xb7, 0xb6, 0xb7, 0xb6, 0xb7
 };
 
-
-
 uint8_t attribute[] = {
 	0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 
 	0x00, 0x88, 0xaa, 0x00, 0x00, 0x80, 0xa0, 0xa0, 
@@ -179,17 +177,33 @@ uint8_t game_palette[] = {
     0x22,0x27,0x17,0x0F
 };
 
+void render(int sx, int sy);
+
 int main(int argc, char** argv) {
 
   	ppuAddr(0x2000);
     for(uint16_t x = 0; x < 960; x++) {
-       ppuDataWrite(nametable[x]);
+       ppuDataWrite(nametable1[x]);
     }
 
   	ppuAddr(0x23C0);
     for(uint8_t x = 0; x < 64; x++) {
        ppuDataWrite(attribute[x]);
     }
+
+  	ppuAddr(0x2400);
+    for(uint16_t y = 0; y < 30; y++) {
+		for(uint16_t x = 0; x < 32; x++) {
+			ppuDataWrite(x);
+		}
+	}
+
+  	ppuAddr(0x27C0);
+    for(uint8_t y = 0; y < 8; y++) {
+	    for(uint8_t x = 0; x < 8; x++) {
+    	   ppuDataWrite(x % 4);
+    	}
+	}	
 
     ppuAddr(0x3F00);
     for(uint8_t x = 0; x < 16; x++) {
@@ -237,23 +251,60 @@ int main(int argc, char** argv) {
     // }
     // fclose(f);
 
-    f = fopen("nametabletest.ppm", "w+");
-    fprintf(f, "P3\n256 240 255\n");
-    uint8_t line_buffer[256];
-    
-    for (int y = 0; y < 240; y++) {
-       nes_ppu_scanline(line_buffer, y);
+	// test fine scrolling, 1 pixel to see if it correctly subdivides tiles
+	for(int sy = 0; sy < 8; sy++) {
+		render(0, sy);
+	}
+	// one tile at a time, full screen
+	for(int sy = 8; sy < 240; sy+=8) {
+		render(0, sy);
+	}
 
-       for (int x = 0; x < 256; x++) {
-          uint8_t * rgb = YUV + line_buffer[x] * 3;
-          fprintf(f, "%03d %03d %03d\t", rgb[0], rgb[1], rgb[2]);
-          // fprintf(f, "%03d %03d %03d\t", line_buffer[x], line_buffer[x], line_buffer[x]);
-       }
-       fprintf(f, "\n");
-    }
+	for(int sx = 0; sx < 8; sx++) {
+		render(sx, 0);
+	}
+	for(int sx = 8; sx < 255; sx+=8) {
+		render(sx, 0);
+	}
 
-    fclose(f);
+	// test 8th bit
+    ppuCtrl(0b00010001);
+
+	for(int sx = 0; sx < 255; sx+=8) {
+		render(sx, 0);
+	}
+
+    ppuCtrl(0b00010000);
+
+	// test combined 
+	for(int s = 0; s < 128; s+=8) {
+		render(s, s);
+	}
+
 
     return 0;
+}
+
+int frame_count = 0;
+void render(int sx, int sy) {
+	ppuScroll(sx % 256, sy % 256);
+	char filename[30];
+	snprintf(filename, 30, "nametabletest%03d.ppm", frame_count++);
+	FILE *f = fopen(filename, "w+");
+	fprintf(f, "P3\n256 240 255\n");
+	uint8_t line_buffer[256];
+	
+	for (int y = 0; y < 240; y++) {
+		nes_ppu_scanline(line_buffer, y);
+
+		for (int x = 0; x < 256; x++) {
+			uint8_t * rgb = YUV + line_buffer[x] * 3;
+			fprintf(f, "%03d %03d %03d\t", rgb[0], rgb[1], rgb[2]);
+			// fprintf(f, "%03d %03d %03d\t", line_buffer[x], line_buffer[x], line_buffer[x]);
+		}
+		fprintf(f, "\n");
+	}
+
+	fclose(f);	
 }
 

@@ -29,6 +29,11 @@ inline void oamDataWrite(uint8_t data) {
     busWrite(0x2004, data);
 }
 
+inline void ppuScroll(uint8_t x, uint8_t y) {
+    ppuStatus();
+    busWrite(0x2005, x);
+    busWrite(0x2005, y);
+}
 
 inline void ppuAddr(uint16_t addr) {
     ppuStatus();

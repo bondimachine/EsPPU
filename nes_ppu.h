@@ -14,10 +14,14 @@ uint8_t palette[32];
 uint8_t vram_step = 1;
 bool write_latch = false;
 
-uint16_t nametable_address = 0;
 uint16_t sprite_8x8_pattern_address = 0;
 uint16_t background_pattern_address = 0;
 uint8_t sprite_height = 8;
+
+uint8_t scroll_x = 0;
+uint16_t scroll_x_high = 0;
+uint8_t scroll_y = 0;
+uint16_t scroll_y_high = 0;
 
 bool nmi_output = false;
 bool nmi_clear = false;
@@ -45,15 +49,24 @@ inline uint8_t pixel_palette_idx(uint8_t right_plane_line, uint8_t left_plane_li
 inline void nes_ppu_scanline(uint8_t* buf, int y) {
 
     if(background_rendering) {
+        // TODO: horizontal mirroring
+        uint16_t effective_y = (y + scroll_y + scroll_y_high) % 240;
+        uint8_t row = effective_y / 8;
+        for (uint16_t x = 0; x < 256; x++) {
+            uint16_t effective_x = (x + scroll_x + scroll_x_high) % 512;
+            uint16_t table_x = 0;
+            if (effective_x >= 256) {
+                effective_x -= 256;
+                table_x = 0x400;
+            };
+            uint8_t col = effective_x / 8;
 
-        uint8_t row = y / 8;
-        for (uint8_t col = 0; col < 32; col++) {
-            uint8_t tile_index = vram[nametable_address + (row * 32) + col];
+            uint8_t tile_index = vram[table_x + (row * 32) + col];
 
-            uint8_t attribute = vram[nametable_address + 0x03C0 + ((row / 4) * 8) + col / 4];
+            uint8_t attribute = vram[table_x + 0x03C0 + ((row / 4) * 8) + col / 4];
 
             uint8_t* tile = chr + background_pattern_address + tile_index * 16;
-            uint8_t line = (y % 8);
+            uint8_t line = (effective_y % 8);
 
             uint8_t right_plane_line = tile[line];
             uint8_t left_plane_line = tile[line + 8];
@@ -66,16 +79,12 @@ inline void nes_ppu_scanline(uint8_t* buf, int y) {
             uint8_t tile_palete_idx = (attribute >> attribute_shift) & 0b11;
             uint8_t* tile_palette = palette + tile_palete_idx * 4;
 
-            uint8_t base_x = col*8;
-
-            for (uint8_t x = 0; x < 8; x++) {
-                uint8_t pixel = pixel_palette_idx(left_plane_line, right_plane_line, x);
-                if (pixel) {
-                    buf[base_x + x] = tile_palette[pixel];
-                } else {
-                    buf[base_x + x] = palette[0];
-                }                
-            }
+            uint8_t pixel = pixel_palette_idx(left_plane_line, right_plane_line, effective_x % 8);
+            if (pixel) {
+                buf[x] = tile_palette[pixel];
+            } else {
+                buf[x] = palette[0];
+            }                
         }
 
     } else {
@@ -148,7 +157,6 @@ inline void nes_ppu_scanline(uint8_t* buf, int y) {
     }
 
     // TODO ppumask
-    // TODO scroll
 }
 
 inline uint8_t nes_ppu_command(uint16_t address, uint8_t data, bool write) {
@@ -156,7 +164,8 @@ inline uint8_t nes_ppu_command(uint16_t address, uint8_t data, bool write) {
         case 0x2000:
             // PPUCTRL
             if (write) {
-                nametable_address = 0x0400 * (data & 3); // this is some shift but I'm being lazy
+                scroll_x_high = (data & 1) ? 256 : 0;
+                scroll_y_high = (data & 2) ? 256 : 0;
                 vram_step = data & (1 << 2) ? 32 : 1;
                 sprite_8x8_pattern_address = data & (1 << 3) ? 0x1000 : 0;
                 background_pattern_address = data & (1 << 4) ? 0x1000 : 0;
@@ -203,6 +212,14 @@ inline uint8_t nes_ppu_command(uint16_t address, uint8_t data, bool write) {
             break;
         case 0x2005:
             // PPUSCROLL
+            if (!write_latch) {
+                scroll_x = data;
+                write_latch = true;
+            } else {
+                scroll_y = data;
+                write_latch = false;
+            }
+            break;
             break;
         case 0x2006:
             // PPUADDR
