@@ -37,7 +37,7 @@ TODO: CHR-ROM access (latch wih 373/374 or 573/574)
 
 # Custom sdkconfig for Arduino Core
 
-When linking, you'll get `multiple definition of `xt_highint4'` error.
+When linking, you'll get `multiple definition of `xt_highint5'` error.
 
 We need a custom ESP-IDF with disabled BT interrupt.
 
@@ -55,7 +55,6 @@ git clone https://github.com/espressif/esp32-arduino-lib-builder.git
 git checkout release/v4.4
 
 echo 'CONFIG_BTDM_CTRL_HLI=n' >> configs/defconfig.common
-echo 'CONFIG_ESP_SYSTEM_CHECK_INT_LEVEL_5=y' >> configs/defconfig.common
 echo 'CONFIG_ESP_INT_WDT_TIMEOUT_MS=10000' >> configs/defconfig.common
 
 ./build.sh -A release/v2.x -I release/v4.4 -t esp32 -b idf_libs
