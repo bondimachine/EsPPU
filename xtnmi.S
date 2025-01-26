@@ -11,10 +11,10 @@ _stack:
     .space      12
 
     .section .iram1,"ax"
-    .global     xt_highint4
-    .type       xt_highint4,@function
+    .global     xt_highint5
+    .type       xt_highint5,@function
     .align      4
-xt_highint4:
+xt_highint5:
     // sadly to clear the interrupt mark, we need two free registers (address and data), 
     // so we cannot help building some stack to store them even for discarded clocks.
     movi    a0, _stack
@@ -54,8 +54,8 @@ exit:
     l32i    a1, a0, 0 // restore a1
     l32i    a2, a0, 4 // restore a2
 
-    rsr     a0, EXCSAVE4 // restore a0
-    rfi     4
+    rsr     a0, EXCSAVE5 // restore a0
+    rfi     5
 
     .global ld_include_xt_nmi
 ld_include_xt_nmi:

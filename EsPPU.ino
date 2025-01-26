@@ -168,9 +168,9 @@ void loop() {
 
   Serial.println("starting bus read");
 
-  // the 25 comes from here https://github.com/espressif/esp-idf/blob/0f0068fff3ab159f082133aadfa9baf4fc0c7b8d/components/esp_hw_support/port/esp32/esp_cpu_intr.c#L170 
-  intr_matrix_set(xPortGetCoreID(), ETS_GPIO_INTR_SOURCE, 25);
-  ESP_INTR_ENABLE( 25 );
+  // the 26 comes from here https://github.com/espressif/esp-idf/blob/0f0068fff3ab159f082133aadfa9baf4fc0c7b8d/components/esp_hw_support/port/esp32/esp_cpu_intr.c#L170 
+  intr_matrix_set(xPortGetCoreID(), ETS_GPIO_INTR_SOURCE, 26);
+  ESP_INTR_ENABLE( 26 );
 
   for(;;) {
 
@@ -222,13 +222,13 @@ void render(void* ignored) {
 
       frame_count++;
       if(isr_frames >= 60) {
-        isr_frames = 0;
         Serial.print("buffer ");
         Serial.print(command_buffer_write_index + 1);
         Serial.print(" delta ");
         Serial.print(command_buffer_write_index - command_buffer_read_index);
         Serial.print(" fps ");
-        Serial.println(frame_count);
+        Serial.println(frame_count * isr_frames / 60);
+        isr_frames = 0;
         frame_count = 0;
       }
 
