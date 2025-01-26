@@ -3,6 +3,8 @@
 #include "font.h"
 #include <LittleFS.h>
 
+#include "esp_task_wdt.h"
+
 #define AUDIO_PIN   33
 
 #include "video_out.h"
@@ -55,14 +57,20 @@ extern void* ld_include_xt_nmi;
 uint8_t** back_buffer_lines;
 
 volatile bool new_frame = false;
+volatile bool new_frame_ready = false;
 
 volatile uint32_t frame_count = 0;
+volatile uint32_t isr_frames = 0;
 
 void on_frame() {    
     // this is on ISR so we don't do much work here
-    uint8_t** current = _lines;
-    _lines = back_buffer_lines;
-    back_buffer_lines = current;
+    if (new_frame_ready) {
+      new_frame_ready = false;
+      uint8_t** current = _lines;
+      _lines = back_buffer_lines;
+      back_buffer_lines = current;
+    }
+    isr_frames++;
     new_frame = true;
 }
 
@@ -108,12 +116,6 @@ void setup() {
 
     gpio_config(&io_conf);
 
-    // the 14 comes from here https://github.com/espressif/esp-idf/blob/0f0068fff3ab159f082133aadfa9baf4fc0c7b8d/components/esp_hw_support/port/esp32/esp_cpu_intr.c#L170 
-    intr_matrix_set(xPortGetCoreID(), ETS_GPIO_INTR_SOURCE, 14);
-    ESP_INTR_ENABLE( 14 );
-
-    // xTaskCreatePinnedToCore(init_intr, "init_intr", 1024, NULL, 0, NULL, 0);
-
     uint8_t* _front_buffer = (uint8_t*)calloc(240*256, 1);
     uint8_t* _back_buffer = (uint8_t*)calloc(240*256, 1);
     _lines = (uint8_t**) malloc(240 * sizeof(uint8_t*));
@@ -141,8 +143,12 @@ void setup() {
     }
 
     render_welcome();
+    new_frame_ready = true;
 
     video_init(nes_4_phase, 64, true);
+
+    xTaskCreatePinnedToCore(render, "render", 1024, NULL, configMAX_PRIORITIES - 1, NULL, 0);
+
 }
 
 void render_new_frame() {
@@ -160,26 +166,13 @@ void render_new_frame() {
 
 void loop() {
 
-    if (new_frame) {
+  Serial.println("starting bus read");
 
-      new_frame = false;
+  // the 25 comes from here https://github.com/espressif/esp-idf/blob/0f0068fff3ab159f082133aadfa9baf4fc0c7b8d/components/esp_hw_support/port/esp32/esp_cpu_intr.c#L170 
+  intr_matrix_set(xPortGetCoreID(), ETS_GPIO_INTR_SOURCE, 25);
+  ESP_INTR_ENABLE( 25 );
 
-      render_new_frame();
-
-      frame_count++;
-      if(frame_count == 60) {
-        Serial.print("buffer ");
-        Serial.print(command_buffer_write_index + 1);
-        Serial.print(" delta ");
-        Serial.println(command_buffer_write_index - command_buffer_read_index);
-        frame_count = 0;
-      }
-
-      if (nmi_output) {
-        digitalWrite(PIN_INT, LOW);
-      }
-
-    }  
+  for(;;) {
 
     if (command_buffer_read_index != command_buffer_write_index) {
 
@@ -207,11 +200,44 @@ void loop() {
       nes_ppu_command(address, data, write);
 
     }
-
     if (nmi_clear) {
       nmi_clear = false;
       digitalWrite(PIN_INT, HIGH);
     }
+  }  
+
+}
+
+void render(void* ignored) {
+
+  esp_task_wdt_delete(xTaskGetIdleTaskHandleForCPU(0));
+
+  for(;;) {
+    if (new_frame && !new_frame_ready) {
+
+      new_frame = false;
+
+      render_new_frame();
+      new_frame_ready = true;
+
+      frame_count++;
+      if(isr_frames >= 60) {
+        isr_frames = 0;
+        Serial.print("buffer ");
+        Serial.print(command_buffer_write_index + 1);
+        Serial.print(" delta ");
+        Serial.print(command_buffer_write_index - command_buffer_read_index);
+        Serial.print(" fps ");
+        Serial.println(frame_count);
+        frame_count = 0;
+      }
+
+      if (nmi_output) {
+        digitalWrite(PIN_INT, LOW);
+      }
+    }  
+
+  }
 }
 
 /*

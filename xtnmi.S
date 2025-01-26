@@ -1,19 +1,20 @@
 #include <xtensa/coreasm.h>
 #include "soc/gpio_reg.h"
 #include "pins.h"
+#include "soc/timer_group_reg.h"
+
 
 // sources https://github.com/espressif/esp-idf/blob/v5.4/examples/system/nmi_isr/main/asm_funcs.S 
-
 
     .data
 _stack:
     .space      12
 
     .section .iram1,"ax"
-    .global     xt_nmi
-    .type       xt_nmi,@function
+    .global     xt_highint4
+    .type       xt_highint4,@function
     .align      4
-xt_nmi:
+xt_highint4:
     // sadly to clear the interrupt mark, we need two free registers (address and data), 
     // so we cannot help building some stack to store them even for discarded clocks.
     movi    a0, _stack
@@ -53,8 +54,8 @@ exit:
     l32i    a1, a0, 0 // restore a1
     l32i    a2, a0, 4 // restore a2
 
-    rsr     a0, EXCSAVE + XCHAL_NMILEVEL // restore a0
-    rfi     XCHAL_NMILEVEL
+    rsr     a0, EXCSAVE4 // restore a0
+    rfi     4
 
     .global ld_include_xt_nmi
 ld_include_xt_nmi:
