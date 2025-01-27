@@ -6,6 +6,7 @@
 #include "esp_task_wdt.h"
 
 #define AUDIO_PIN   33
+#define PAL_N       1
 
 #include "video_out.h"
 #include "nes_ppu.h"
@@ -145,7 +146,7 @@ void setup() {
     render_welcome();
     new_frame_ready = true;
 
-    video_init(nes_4_phase, 64, true);
+    video_init(_nes_yuv_4_phase_pal, 64, false);
 
     xTaskCreatePinnedToCore(render, "render", 1024, NULL, configMAX_PRIORITIES - 1, NULL, 0);
 
