@@ -6,6 +6,7 @@
 #include "esp_task_wdt.h"
 
 #define AUDIO_PIN   33
+#define PAL_N       1
 
 #include "video_out.h"
 #include "nes_ppu.h"
@@ -208,7 +209,7 @@ void loop() {
 
 void render(void* ignored) {
 
-  video_init(nes_4_phase, 64, true);
+  video_init(_nes_yuv_4_phase_pal, 64, false);
 
   esp_task_wdt_delete(xTaskGetIdleTaskHandleForCPU(0));
 

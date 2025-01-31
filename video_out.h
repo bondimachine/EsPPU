@@ -127,7 +127,11 @@ static esp_err_t start_dma(int line_width,int samples_per_cc, int ch = 1)
             case 4: rtc_clk_apll_enable(1,0x46,0x97,0x4,1);   break;    // 14.3181818182 4x NTSC (14.3181864421mhz)
         }
     } else {
-        rtc_clk_apll_enable(1,0x04,0xA4,0x6,1);     // 17.734476mhz ~4x PAL
+        #ifdef PAL_N
+          rtc_clk_apll_enable(1,0xD1,0x98,0x04,1);     // 14.32823181mhz ~4x PAL-N
+        #else
+          rtc_clk_apll_enable(1,0x04,0xA4,0x6,1);     // 17.734476mhz ~4x PAL
+        #endif
     }
 
 /*
@@ -351,8 +355,14 @@ static int usec(float us)
 #define NTSC_LINES 262
 
 #define PAL_COLOR_CLOCKS_PER_SCANLINE 284        // really 283.75 ?
-#define PAL_FREQUENCY 4433618.75
+#ifdef PAL_N
+  #define PAL_FREQUENCY 3582056.25 // PAL-N
+#else
+  #define PAL_FREQUENCY 4433618.75
+#endif
 #define PAL_LINES 312
+
+
 
 void pal_init();
 
