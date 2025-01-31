@@ -186,10 +186,10 @@ void video_init_hw(int line_width, int samples_per_cc)
     //                   |
     //                   v gnd
 
-    ledcSetup(0,2000000,7);    // 625000 khz is as fast as we go w 7 bits
-    ledcAttachPin(AUDIO_PIN, 0);
-    // ledcAttach(AUDIO_PIN, 2000000,7);
-    ledcWrite(0,0);
+    // ledcSetup(0,2000000,7);    // 625000 khz is as fast as we go w 7 bits
+    // ledcAttachPin(AUDIO_PIN, 0);
+    // // ledcAttach(AUDIO_PIN, 2000000,7);
+    // ledcWrite(0,0);
 
     //  IR input if used
 #ifdef IR_PIN
