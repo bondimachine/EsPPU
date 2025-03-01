@@ -146,8 +146,6 @@ void setup() {
     render_welcome();
     new_frame_ready = true;
 
-    video_init(_nes_yuv_4_phase_pal, 64, false);
-
     xTaskCreatePinnedToCore(render, "render", 1024, NULL, configMAX_PRIORITIES - 1, NULL, 0);
 
 }
@@ -210,6 +208,8 @@ void loop() {
 }
 
 void render(void* ignored) {
+
+  video_init(_nes_yuv_4_phase_pal, 64, false);
 
   esp_task_wdt_delete(xTaskGetIdleTaskHandleForCPU(0));
 
