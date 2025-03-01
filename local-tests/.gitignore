@@ -1,4 +1,6 @@
 oamtest
 nametabletest
+aputest
 *.ppm
 *.mp4
+*.wav
