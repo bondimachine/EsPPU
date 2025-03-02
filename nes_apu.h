@@ -35,10 +35,11 @@ struct triangle_channel {
     // This bit controls both the length counter and linear counter at the same time.
     // When set this will stop the length counter in the same way as for the pulse/noise channels.
     // When set it prevents the linear counter's internal reload flag from clearing, which effectively halts it if $400B is written after setting C.
-    uint8_t linear_counter_enabled; // $4008 Cxxxxxxx
+    uint8_t infinite_play; // $4008 Cxxxxxxx
 
     // This reload value will be applied to the linear counter on the next frame counter tick, but only if its reload flag is set
     uint8_t linear_counter_reload; // $4008 xRRRRRRR
+    uint8_t linear_counter_reload_flag;
     uint8_t linear_counter; // $4008 xRRRRRRR
 
     uint16_t timer; // high $400B xxxxTTT, lo $400A TTTTTTTT
@@ -75,9 +76,10 @@ struct pulse_channel pulse2;
 struct triangle_channel triangle;
 struct noise_channel noise;
 
-uint8_t frame_counter_mode = 0; // $4017 Mxxxxxxxxx 0 = 4-step, 1 = 5-step
+uint8_t frame_counter_mode_5_step = 0; // $4017 Mxxxxxxxxx 0 = 4-step, 1 = 5-step
 uint16_t frame_counter = 0;
-bool even_clock = true;
+uint8_t frame_counter_step = 0;
+uint8_t even_clock = 1;
 
 #define FRAME_COUNTER_STEP 3728 // 4156 pal
 
@@ -94,14 +96,48 @@ inline void apu_clock() {
     }
 
     if (even_clock) {
-        even_clock = false;
+        even_clock = 0;
 
         frame_counter++;
+        if (frame_counter == FRAME_COUNTER_STEP) {
+            frame_counter_step++;
+            if (!(frame_counter_mode_5_step && frame_counter == 4)) {
+                // envelope step
+                if (triangle.linear_counter_reload_flag) {
+                    triangle.linear_counter = triangle.linear_counter_reload;
+                    if (!triangle.infinite_play) {
+                        triangle.linear_counter_reload_flag = 0;
+                    }
+                } else if (triangle.linear_counter > 0) {
+                    triangle.linear_counter--;
+                }
 
+                bool last_step = frame_counter_step >= 4;
+                if (frame_counter_step == 2 || last_step) {
+                    // length & sweep step
+                    if (!pulse1.infinite_play && pulse1.length_counter > 0) {
+                        pulse1.length_counter--;
+                    }
+                    if (!pulse2.infinite_play && pulse2.length_counter > 0) {
+                        pulse2.length_counter--;
+                    }
+                    if (!triangle.infinite_play && triangle.length_counter > 0) {
+                        triangle.length_counter--;
+                    }
+                    if (!noise.infinite_play && noise.length_counter > 0) {
+                        noise.length_counter--;
+                    }
+                }
+                if (last_step) {
+                    frame_counter_step = 0;
+                }
+            }
+            frame_counter = 0;
+        }
 
 
     } else {
-        even_clock = true;
+        even_clock = 1;
     }
 }
 
@@ -115,8 +151,7 @@ uint8_t apu_sample() {
     
     tnd_out = 0.00851 * triangle + 0.00494 * noise + 0.00335 * dmc
     */    
-
-    if (triangle.enabled && ((!triangle.linear_counter_enabled && triangle.length_counter > 0) || (triangle.linear_counter_enabled && triangle.linear_counter > 0))) {
+    if (triangle.enabled && (triangle.length_counter > 0 && triangle.linear_counter > 0)) {
         tnd_out = abs(triangle.sequence) * 16;
     }
 
@@ -170,7 +205,7 @@ inline uint8_t nes_apu_command(uint16_t address, uint8_t data, bool write) {
 
         // triangle
         case 0x4008:
-            triangle.linear_counter_enabled = (data >> 7) & 1;
+            triangle.infinite_play = (data >> 7) & 1;
             triangle.linear_counter_reload = data & 0b01111111;
             break;
         case 0x400A:
@@ -180,6 +215,7 @@ inline uint8_t nes_apu_command(uint16_t address, uint8_t data, bool write) {
             triangle.timer = ((data & 7) << 8) | (triangle.timer & 0xFF);
             triangle.length_counter = length_counter_mapping[data >> 3];
             triangle.timer_count = triangle.timer;
+            triangle.linear_counter_reload_flag = 1;
             break;
 
         // noise
@@ -207,6 +243,7 @@ inline uint8_t nes_apu_command(uint16_t address, uint8_t data, bool write) {
                 triangle.enabled = (data >> 2) & 1;
                 triangle.length_counter = 0;
                 triangle.sequence = -15;
+                triangle.linear_counter_reload_flag = 0;
                 noise.enabled = (data >> 3) & 1;
                 noise.length_counter = 0;
                 break;
@@ -219,13 +256,14 @@ inline uint8_t nes_apu_command(uint16_t address, uint8_t data, bool write) {
             }
 
         case 0x4017:
-            frame_counter_mode = data >> 7;
+            frame_counter_mode_5_step = data >> 7;
             // Writing to $4017 with bit 7 set ($80) will immediately clock all of its controlled
             // units at the beginning of the 5-step sequence; with bit 7 clear, only the sequence 
             // is reset without clocking any of its units.
-            if (frame_counter_mode) {
+            if (frame_counter_mode_5_step) {
                 frame_counter = 0;
-                even_clock = true;
+                frame_counter_step = 0;
+                even_clock = 1;
             }
             frame_counter = 0;
             break;
