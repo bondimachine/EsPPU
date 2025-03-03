@@ -125,16 +125,16 @@ int main() {
     apu(0x4005, 0xAC); // Sq1Sweep
     apu(0x4006, 0xAB); // Sq1Timer
     apu(0x4007, 0x21); // Sq1Length    
-    frames(4);
+    frames(15);
 
     apu(0x4006, 0x7C); // Sq1Timer
     apu(0x4007, 0x21); // Sq1Length    
-    frames(4);
+    frames(30);
 
     apu(0x4005, 0xB3); // Sq1Sweep
     apu(0x4006, 0x57); // Sq1Timer
     apu(0x4007, 0x23); // Sq1Length    
-    frames(4);
+    frames(30);
 
 
     // enemy hit 
@@ -146,6 +146,10 @@ int main() {
         frames(4);
     }
 
+    frames(10);
+
+    apu(0x4005, 0x00); // Sq1Sweep
+
     // water splash 
     for (int i = 0; i < 5; i++) {
         apu(0x400C, 0x0A); // NoiseVolume 
@@ -153,6 +157,8 @@ int main() {
         apu(0x400F, 0x40); // NoiseLength 
         frames(4);
     }
+
+    frames(50);
 
     for (int i = 0; i < 15; i++) {
         if (game_over_sq0_timer[i] != 0) {

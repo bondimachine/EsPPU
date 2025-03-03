@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 struct channel {
     uint8_t enabled; // $4015 xxxDNT21
@@ -29,7 +30,9 @@ struct sweep {
     uint8_t enabled; // $4001 Exxxxxxx
     uint8_t period; // $4001 xPPPxxxx
     uint8_t negate; // $4001 xxxxNxxx
-    uint8_t shift; // $4001 xxxxxSSS    
+    uint8_t shift; // $4001 xxxxxSSS
+    uint8_t divider;
+    uint8_t reload;
 };
 
 struct pulse_channel {
@@ -129,7 +132,28 @@ inline void envelope_step(struct envelope* envelope, uint8_t infinite_play) {
     }
 }
 
-inline void sweep_step(struct sweep* envelope) {
+inline void sweep_step(struct sweep* sweep, struct channel* channel, int8_t comp1) {
+    if(sweep->enabled) {
+        if(sweep->divider == 0 && sweep->shift > 0) {
+            uint16_t change = channel->timer >> sweep->shift;
+            if (sweep->negate) {
+                change += comp1;
+                if (change > channel->timer) {
+                    channel->timer = 0;
+                } else {
+                    channel->timer -= change;
+                }
+            } else {
+                channel->timer += change;
+            }
+        }
+        if(sweep->reload || sweep->divider == 0) {
+            sweep->divider = sweep->period;
+            sweep->reload = 0;
+        } else {
+            sweep->divider--;
+        }
+    }
 }
 
 inline void triangle_linear_counter_step() {
@@ -195,8 +219,8 @@ void apu_clock() {
                     length_step(&pulse2.channel);
                     length_step(&triangle.channel);
                     length_step(&noise.channel);
-                    sweep_step(&pulse1.sweep);
-                    sweep_step(&pulse2.sweep);
+                    sweep_step(&pulse1.sweep, &pulse1.channel, 1);
+                    sweep_step(&pulse2.sweep, &pulse2.channel, 0);
                 }
             }
 
@@ -258,6 +282,7 @@ inline void set_sweep(struct sweep* sweep, uint8_t data) {
     sweep->period = (data >> 4) & 7;
     sweep->negate = (data >> 3) & 1;
     sweep->shift = data & 7;
+    sweep->reload = 1;
 }
 
 inline void set_timer_lo(struct channel* channel, uint8_t data) {
