@@ -39,7 +39,8 @@ struct pulse_channel {
     struct sweep sweep;
 
     // The width of the pulse is controlled by the duty bits in $4000/$4004  
-    uint8_t pulse_width; // $4000 DDxxxxxx
+    uint8_t duty; // $4000 DDxxxxxx
+    uint8_t sequence;
 
 };
 
@@ -83,6 +84,13 @@ uint8_t length_counter_mapping[] = { 10, 254, 20,  2, 40,  4, 80,  6, 160,  8, 6
                                      12, 16, 24, 18, 48, 20, 96, 22, 192, 24, 72, 26, 16, 28, 32, 30 };
 
 uint16_t noise_period[] = { 4, 8, 16, 32, 64, 96, 128, 160, 202, 254, 380, 508, 762, 1016, 2034, 4068 };
+
+const uint8_t pulse_duties[4][8] = {
+    { 0, 1, 0, 0, 0, 0, 0, 0 },
+    { 0, 1, 1, 0, 0, 0, 0, 0 },
+    { 0, 1, 1, 1, 1, 0, 0, 0 },
+    { 1, 0, 0, 1, 1, 1, 1, 1 }
+};
 
 // pal
 // uint16_t noise_period[] = { 4, 8, 14, 30, 60, 88, 118, 148, 188, 236, 354, 472, 708,  944, 1890, 3778 };
@@ -143,13 +151,28 @@ void apu_clock() {
         }
     }
 
-    if (timer_step(&noise.channel)) {
-        uint8_t feedback = (noise.shift_register & 1) ^ ((noise.shift_register >> (noise.noise_mode ? 6 : 1)) & 1);
-        noise.shift_register = (noise.shift_register >> 1) | (feedback << 14);
-    }
-
     if (even_clock) {
         even_clock = 0;
+
+        if (timer_step(&noise.channel)) {
+            uint8_t feedback = (noise.shift_register & 1) ^ ((noise.shift_register >> (noise.noise_mode ? 6 : 1)) & 1);
+            noise.shift_register = (noise.shift_register >> 1) | (feedback << 14);
+        }
+
+        if (timer_step(&pulse1.channel)) {
+            pulse1.sequence++;
+            if (pulse1.sequence == 8) {
+                pulse1.sequence = 0;
+            }
+        }
+
+        if (timer_step(&pulse2.channel)) {
+            pulse2.sequence++;
+            if (pulse2.sequence == 8) {
+                pulse2.sequence = 0;
+            }
+        }
+
 
         frame_counter++;
         if (frame_counter == FRAME_COUNTER_STEP) {
@@ -189,6 +212,10 @@ inline uint8_t volume(struct envelope* envelope) {
     return envelope->constant_volume ? envelope->volume : envelope->decay;
 }
 
+inline uint8_t pulse_sequence_value(struct pulse_channel* pulse) {
+    return pulse_duties[pulse->duty][pulse->sequence];
+}
+
 uint8_t apu_sample() {
     uint8_t tnd_out = 0;
 
@@ -200,6 +227,15 @@ uint8_t apu_sample() {
     tnd_out = 0.00851 * triangle + 0.00494 * noise + 0.00335 * dmc
     */ 
     
+    uint8_t pulse_out = 0;
+    if (pulse1.channel.enabled && (pulse1.channel.length_counter > 0) && (pulse1.channel.timer >= 8)) {
+        pulse_out = pulse_sequence_value(&pulse1) * volume(&pulse1.envelope);
+    }
+
+    if (pulse2.channel.enabled && (pulse2.channel.length_counter > 0) && (pulse2.channel.timer >= 8)) {
+        pulse_out += pulse_sequence_value(&pulse2) * volume(&pulse2.envelope);
+    }
+
     if (triangle.channel.enabled && (triangle.channel.length_counter > 0 && triangle.linear_counter > 0)) {
         tnd_out = abs(triangle.sequence) * 3;
     }
@@ -207,11 +243,11 @@ uint8_t apu_sample() {
         tnd_out += volume(&noise.envelope) * 2;
     }
 
-    return tnd_out;
+    return 2*pulse_out + tnd_out;
 }
 
 inline void pulse_set_duty(struct pulse_channel* pulse, uint8_t data) {
-    pulse->pulse_width = data >> 6;
+    pulse->duty = data >> 6;
     pulse->channel.infinite_play = (data >> 5) & 1;
     pulse->envelope.constant_volume = (data >> 4) & 1;
     pulse->envelope.volume = data & 0xF;
@@ -250,6 +286,7 @@ uint8_t nes_apu_command(uint16_t address, uint8_t data, uint8_t write) {
         case 0x4003:
             set_timer_hi(&pulse1.channel, data);
             pulse1.envelope.reset = 1;
+            pulse1.sequence = 0;
             break;
 
         // pulse 2
@@ -265,6 +302,7 @@ uint8_t nes_apu_command(uint16_t address, uint8_t data, uint8_t write) {
         case 0x4007:
             set_timer_hi(&pulse2.channel, data);
             pulse2.envelope.reset = 1;
+            pulse2.sequence = 0;
             break;
 
         // triangle
