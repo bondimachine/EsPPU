@@ -1,6 +1,7 @@
 #include "ppu-protocol-local.h"
 #include "../pins.h"
 #include <stdio.h>
+#include "yuv.h"
 
 int main(int argc, char** argv) {
 

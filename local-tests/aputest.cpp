@@ -113,6 +113,7 @@ int main() {
         if (timer) {
             apu(0x400A, main_theme_trg_timer[i]); 
             apu(0x400B, main_theme_trg_length[i] | 0x10); 
+            apu(0x400F, 0x01); // NoiseLength 
         }
         frame();
     }

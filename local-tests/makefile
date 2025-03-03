@@ -23,4 +23,5 @@ clean:
 	-rm -f nametabletest
 	-rm -f aputest
 	-rm -f *.ppm
+	-rm -f *.mp4
 	-rm -f *.wav
