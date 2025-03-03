@@ -21,7 +21,7 @@ struct envelope {
 
     uint8_t decay;
     uint8_t reset;
-    uint8_t period_counter;
+    uint8_t divider;
 
 };
 
@@ -104,6 +104,37 @@ inline void length_step(struct channel* channel) {
     }
 }
 
+inline void envelope_step(struct envelope* envelope, uint8_t infinite_play) {
+    if (envelope->reset) {
+        envelope->reset = 0;
+        envelope->decay = 15;
+        envelope->divider = envelope->volume;
+    } else if (envelope->divider > 0) {
+        envelope->divider--;
+    } else {
+        envelope->divider = envelope->volume;
+        if (envelope->decay > 0) {
+            envelope->decay--;
+        } else if (infinite_play) {
+            envelope->decay = 15;
+        }
+    }
+}
+
+inline void sweep_step(struct sweep* envelope) {
+}
+
+inline void triangle_linear_counter_step() {
+    if (triangle.linear_counter_reload_flag) {
+        triangle.linear_counter = triangle.linear_counter_reload;
+        if (!triangle.channel.infinite_play) {
+            triangle.linear_counter_reload_flag = 0;
+        }
+    } else if (triangle.linear_counter > 0) {
+        triangle.linear_counter--;
+    }
+}
+
 void apu_clock() {
     if (timer_step(&triangle.channel)) {
         triangle.sequence++;
@@ -122,38 +153,40 @@ void apu_clock() {
 
         frame_counter++;
         if (frame_counter == FRAME_COUNTER_STEP) {
+            frame_counter = 0;
             frame_counter_step++;
-            if (!(frame_counter_mode_5_step && frame_counter == 4)) {
-                // envelope step
 
-                if (triangle.linear_counter_reload_flag) {
-                    triangle.linear_counter = triangle.linear_counter_reload;
-                    if (!triangle.channel.infinite_play) {
-                        triangle.linear_counter_reload_flag = 0;
-                    }
-                } else if (triangle.linear_counter > 0) {
-                    triangle.linear_counter--;
+            if (!(frame_counter_mode_5_step && frame_counter == 4)) {
+                if (frame_counter_step >= 4) {
+                    frame_counter_step = 0;
                 }
 
-                bool last_step = frame_counter_step >= 4;
-                if (frame_counter_step == 2 || last_step) {
-                    // length & sweep step
+                envelope_step(&pulse1.envelope, pulse1.channel.infinite_play);
+                envelope_step(&pulse2.envelope, pulse2.channel.infinite_play);
+                envelope_step(&noise.envelope, noise.channel.infinite_play);
+
+                triangle_linear_counter_step();
+
+                if (frame_counter_step == 0 || frame_counter_step == 2) {
                     length_step(&pulse1.channel);
                     length_step(&pulse2.channel);
                     length_step(&triangle.channel);
                     length_step(&noise.channel);
-                }
-                if (last_step) {
-                    frame_counter_step = 0;
+                    sweep_step(&pulse1.sweep);
+                    sweep_step(&pulse2.sweep);
                 }
             }
-            frame_counter = 0;
+
         }
 
 
     } else {
         even_clock = 1;
     }
+}
+
+inline uint8_t volume(struct envelope* envelope) {
+    return envelope->constant_volume ? envelope->volume : envelope->decay;
 }
 
 uint8_t apu_sample() {
@@ -171,7 +204,7 @@ uint8_t apu_sample() {
         tnd_out = abs(triangle.sequence) * 3;
     }
     if (noise.channel.enabled && ((noise.channel.length_counter > 0) && (noise.shift_register & 1))) {
-        tnd_out += (noise.envelope.constant_volume ? noise.envelope.volume : 0) * 2;
+        tnd_out += volume(&noise.envelope) * 2;
     }
 
     return tnd_out;
