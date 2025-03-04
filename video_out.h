@@ -178,7 +178,7 @@ void video_init_hw(int line_width, int samples_per_cc)
     // So it is back to PWM/PDM and a 1 bit DAC for us. Good news is that we can do stereo
     // if we want to and have lots of different ways of doing nice noise shaping etc.
 
-    // PWM audio out of pin 18 -> can be anything
+    // PWM audio out of pin 32 -> can be anything
     // lots of other ways, PDM by hand over I2S1, spi circular buffer etc
     // but if you would like stereo the led pwm seems like a fine choice
     // needs a simple rc filter (1k->1.2k resistor & 10nf->15nf cap work fine)
@@ -190,11 +190,12 @@ void video_init_hw(int line_width, int samples_per_cc)
     //                   |
     //                   v gnd
 
-    // ledcSetup(0,2000000,7);    // 625000 khz is as fast as we go w 7 bits
-    // ledcAttachPin(AUDIO_PIN, 0);
-    // // ledcAttach(AUDIO_PIN, 2000000,7);
-    // ledcWrite(0,0);
-
+#ifdef APU
+    ledcSetup(0,2000000,7);    // 625000 khz is as fast as we go w 7 bits
+    ledcAttachPin(PIN_AOUT, 0);
+    // ledcAttach(PIN_AOUT, 2000000,7);
+    ledcWrite(0,0);
+#endif
     //  IR input if used
 #ifdef IR_PIN
     pinMode(IR_PIN,INPUT);

@@ -1,3 +1,8 @@
+#define APU         1
+#define PAL         1
+#define PAL_N       1
+
+
 #include <Arduino.h>
 #include "pins.h"
 #include "font.h"
@@ -5,11 +10,12 @@
 
 #include "esp_task_wdt.h"
 
-#define AUDIO_PIN   33
-#define PAL_N       1
-
 #include "video_out.h"
 #include "nes_ppu.h"
+
+#ifdef APU
+#include "nes_apu.h"
+#endif
 
 volatile uint32_t command_buffer[COMMAND_BUFFER_SIZE];
 volatile uint32_t command_buffer_write_index = 0xFFFFFFFF; // we increment first, then write
@@ -17,7 +23,8 @@ volatile uint32_t command_buffer_read_index = 0xFFFFFFFF;
 
 
 
-// this is dark magic that results of running this https://github.com/rossumur/esp_8_bit/blob/55eb7b86eda290d96b02c38c3e787efb8ae6a8c0/src/emu_nofrendo.cpp#L127 
+// this is dark magic that results of running this https://github.com/rossumur/esp_8_bit/blob/55eb7b86eda290d96b02c38c3e787efb8ae6a8c0/src/emu_nofrendo.cpp#L127
+#ifndef PAL
 uint32_t nes_4_phase[64] = {
     0x2C2C2C2C,0x241D1F26,0x221D2227,0x1F1D2426,0x1D1F2624,0x1D222722,0x1D24261F,0x1F26241D,
     0x2227221D,0x24261F1D,0x26241D1F,0x27221D22,0x261F1D24,0x14141414,0x14141414,0x14141414,
@@ -29,8 +36,10 @@ uint32_t nes_4_phase[64] = {
     0x4045403B,0x42443D3B,0x44423B3D,0x45403B40,0x443D3B42,0x39393939,0x17171717,0x17171717,
 };
 
+bool nstc = true;
+#else
 // PAL yuyv table, must be in RAM
-uint32_t _nes_yuv_4_phase_pal[] = {
+uint32_t nes_4_phase[] = {
     0x31313131,0x2D21202B,0x2720252D,0x21212B2C,0x1D23302A,0x1B263127,0x1C293023,0x202B2D22,
     0x262B2722,0x2C2B2122,0x2F2B1E23,0x31291F27,0x30251F2A,0x18181818,0x19191919,0x19191919,
     0x3D3D3D3D,0x34292833,0x2F282D34,0x29283334,0x252B3732,0x232E392E,0x2431382B,0x28333429,
@@ -49,6 +58,8 @@ uint32_t _nes_yuv_4_phase_pal[] = {
     0x49494949,0x3D414845,0x43404245,0x463F3D44,0x453D3B43,0x453E3B42,0x45423B3F,0x46473E3E,
     0x454A433E,0x3E48463D,0x3943483E,0x38404A42,0x39404B44,0x3E3E3E3E,0x1B1B1B1B,0x1B1B1B1B,
 };
+bool ntsc = false;
+#endif 
 
 static const uint8_t dataPins[] = {PIN_D0, PIN_D1, PIN_D2, PIN_D3, PIN_D4, PIN_D5, PIN_D6, PIN_D7};
 static const uint8_t addressPins[] = {PIN_A0, PIN_A1, PIN_A2};
@@ -209,7 +220,7 @@ void loop() {
 
 void render(void* ignored) {
 
-  video_init(_nes_yuv_4_phase_pal, 64, false);
+  video_init(nes_4_phase, 64, ntsc);
 
   esp_task_wdt_delete(xTaskGetIdleTaskHandleForCPU(0));
 

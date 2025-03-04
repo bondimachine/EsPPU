@@ -33,6 +33,21 @@ GND   --    GND -- |20  21| -> VOUT    -- D25
 
 TODO: CHR-ROM access (latch wih 373/374 or 573/574) 
 
+## APU 
+
+The origial goal of this project was to be able to run NES games in using a "modern" 65C02.
+
+As such, we also added support for emulating the APU. 
+
+You'll need to build an external chip select signal /AS for the APU when address is between 4000-4017; excluding 4016. 4017 actually needs to combine the signals from the joystick support circuits. 
+
+
+D39 - A3
+D34 - A4 
+D35 - A5
+D33 - Audio out
+/AS - D26
+
 
 
 # Custom sdkconfig for Arduino Core

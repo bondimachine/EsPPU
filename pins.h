@@ -22,6 +22,12 @@ D32   --   /INT <+ |19  22| <- /RST    -- D12
 GND   --    GND -- |20  21| -> VOUT    -- D25
                    '------'
 
+D39 - A3
+D34 - A4 
+D35 - A5
+D33 - Audio out
+/AS - D26
+
 */
 
 #ifndef __PINS_H__
@@ -46,6 +52,12 @@ GND   --    GND -- |20  21| -> VOUT    -- D25
 #define PIN_INT 32
 #define PIN_RST 12
 #define PIN_VOUT 25
+
+#define PIN_A3 39
+#define PIN_A4 34
+#define PIN_A5 35
+#define PIN_AOUT 33
+#define PIN_AS 26
 
 // this has nothing to do here, but it is a single line to share with assembly
 #define COMMAND_BUFFER_SIZE 8192
