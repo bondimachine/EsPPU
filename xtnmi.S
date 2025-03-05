@@ -2,7 +2,7 @@
 #include "soc/gpio_reg.h"
 #include "pins.h"
 #include "soc/timer_group_reg.h"
-
+#include "config.h"
 
 // sources https://github.com/espressif/esp-idf/blob/v5.4/examples/system/nmi_isr/main/asm_funcs.S 
 

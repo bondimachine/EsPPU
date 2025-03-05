@@ -1,8 +1,4 @@
-#define APU         1
-#define PAL         1
-#define PAL_N       1
-
-
+#include "config.h"
 #include <Arduino.h>
 #include "pins.h"
 #include "font.h"
@@ -36,7 +32,7 @@ uint32_t nes_4_phase[64] = {
     0x4045403B,0x42443D3B,0x44423B3D,0x45403B40,0x443D3B42,0x39393939,0x17171717,0x17171717,
 };
 
-bool nstc = true;
+bool ntsc = true;
 #else
 // PAL yuyv table, must be in RAM
 uint32_t nes_4_phase[] = {
@@ -62,7 +58,14 @@ bool ntsc = false;
 #endif 
 
 static const uint8_t dataPins[] = {PIN_D0, PIN_D1, PIN_D2, PIN_D3, PIN_D4, PIN_D5, PIN_D6, PIN_D7};
+
+#ifndef APU
 static const uint8_t addressPins[] = {PIN_A0, PIN_A1, PIN_A2};
+static const uint8_t addressPinsCount = 3;
+#else
+static const uint8_t addressPins[] = {PIN_A0, PIN_A1, PIN_A2, PIN_A3, PIN_A4, PIN_A5};
+static const uint8_t addressPinsCount = 6;
+#endif
 
 extern void* ld_include_xt_nmi;
 
@@ -110,11 +113,14 @@ void setup() {
       pinMode(dataPins[pin], INPUT);
     }
 
-    for (uint8_t pin = 0; pin < 3; pin++) {
+    for (uint8_t pin = 0; pin < addressPinsCount; pin++) {
       pinMode(addressPins[pin], INPUT);
     }
 
     pinMode(PIN_CS, INPUT);
+    #ifdef APU
+        pinMode(PIN_AS, INPUT);
+    #endif
 
     pinMode(PIN_CLK, INPUT);
 
@@ -262,30 +268,55 @@ void poll_bus(void* ignored) {
 
     uint32_t reg = REG_READ(GPIO_IN_REG);
 
-    if (reg & (1 << PIN_CLK) && !(reg & (1 << PIN_CS))) {
+    if (reg & (1 << PIN_CLK)) {
+        #ifndef APU
+            bool cs = !(reg & (1 << PIN_CS));
+        #else
+            bool as = !(reg & (1 << PIN_AS));
+            bool cs = !(reg & (1 << PIN_CS)) | as;
+        #endif    
+        if (cs) {
 
-        uint16_t address = 0x2000
-          | (reg >> PIN_A0 & 1)
-          | ((reg >> PIN_A1 & 1) << 1)
-          | ((reg >> PIN_A2 & 1) << 2);
+            uint16_t address = (reg >> PIN_A0 & 1)
+              | ((reg >> PIN_A1 & 1) << 1)
+              | ((reg >> PIN_A2 & 1) << 2);
 
-        uint8_t data = 
-          (reg >> PIN_D0 & 1)
-          | ((reg >> PIN_D1 & 1) << 1)
-          | ((reg >> PIN_D2 & 1) << 2)
-          | ((reg >> PIN_D3 & 1) << 3)
-          | ((reg >> PIN_D4 & 1) << 4)
-          | ((reg >> PIN_D5 & 1) << 5)
-          | ((reg >> PIN_D6 & 1) << 6)
-          | ((reg >> PIN_D7 & 1) << 7);  
+            #ifdef APU
+                if (as) {
+                  // we could play with preprocessor conditionals here instead of assuming that A3..A5 are pins > 32, but meh.
+                  uint32_t reg1 = REG_READ(GPIO_IN1_REG);
+                  address |= ((reg1 >> (PIN_A3-32) & 1) << 3)
+                    | ((reg1 >> (PIN_A4-32) & 1) << 4)
+                    | ((reg1 >> (PIN_A5-32) & 1) << 5);
+                }
+            #endif
 
-        bool write = (reg & (1 << PIN_RW));
+            uint8_t data = 
+              (reg >> PIN_D0 & 1)
+              | ((reg >> PIN_D1 & 1) << 1)
+              | ((reg >> PIN_D2 & 1) << 2)
+              | ((reg >> PIN_D3 & 1) << 3)
+              | ((reg >> PIN_D4 & 1) << 4)
+              | ((reg >> PIN_D5 & 1) << 5)
+              | ((reg >> PIN_D6 & 1) << 6)
+              | ((reg >> PIN_D7 & 1) << 7);  
 
-        nes_ppu_command(address, data, write);
+            bool write = (reg & (1 << PIN_RW));
 
-        command_buffer_read_index++;
+            #ifndef APU
+              nes_ppu_command(0x2000 | address, data, write);
+            #else
+              if (as) {
+                nes_apu_command(0x4000 | address, data, write);
+              } else {
+                nes_ppu_command(0x2000 | address, data, write);
+              }
+            #endif    
 
-      }    
+            command_buffer_read_index++;
+
+        }        
     }
+  }  
 }
 */

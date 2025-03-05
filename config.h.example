@@ -1,0 +1,12 @@
+
+// If we should enable APU emulation
+#define APU         1
+
+// If we want to use PAL mode for output (otherwise is NTSC)
+#define PAL         1
+
+// If we want PAL to be PAL-N 🇦🇷
+#define PAL_N       1
+
+
+

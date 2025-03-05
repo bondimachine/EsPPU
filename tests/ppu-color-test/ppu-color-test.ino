@@ -46,10 +46,11 @@ volatile bool frame = false;
 
 void IRAM_ATTR onNMI(); // forward
 
-#define PIN_LF 26
-#define PIN_RT 33
-#define PIN_UP 35
-#define PIN_DN 34
+
+#define PIN_LF 25
+#define PIN_RT 12
+#define PIN_UP 33
+#define PIN_DN 36 // VP
 
 void setup() {
     
