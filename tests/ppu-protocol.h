@@ -35,7 +35,7 @@ void setupPins() {
     setCpuFrequencyMhz(240);
 
     pinMode(PIN_RW, OUTPUT);
-    digitalWrite(PIN_RW, LOW);
+    digitalWrite(PIN_RW, HIGH); // negated
 
     pinMode(PIN_D0, OUTPUT);
     digitalWrite(PIN_D0, LOW);
@@ -60,8 +60,16 @@ void setupPins() {
     digitalWrite(PIN_A1, LOW);
     pinMode(PIN_A2, OUTPUT);
     digitalWrite(PIN_A2, LOW);
+    // pinMode(PIN_A3, OUTPUT);
+    // digitalWrite(PIN_A3, LOW);
+    // pinMode(PIN_A4, OUTPUT);
+    // digitalWrite(PIN_A4, LOW);
+    // pinMode(PIN_A5, OUTPUT);
+    // digitalWrite(PIN_A5, LOW);
     pinMode(PIN_CS, OUTPUT);
     digitalWrite(PIN_CS, HIGH);
+    pinMode(PIN_AS, OUTPUT);
+    digitalWrite(PIN_AS, HIGH);
 
     pinMode(PIN_CLK, OUTPUT);
     digitalWrite(PIN_CLK, LOW);
@@ -73,23 +81,37 @@ void setupPins() {
 #define SET_PINS(x) REG_WRITE(GPIO_OUT_W1TS_REG, x)
 #define CLEAR_PINS(x) REG_WRITE(GPIO_OUT_W1TC_REG, x)
 
+#define SET_PINS_EXT(x) REG_WRITE(GPIO_OUT1_W1TS_REG, x)
+#define CLEAR_PIN_EXT(x) REG_WRITE(GPIO_OUT1_W1TC_REG, x)
+
 inline void busAddr(uint16_t addr) {
 
     uint32_t toSet = ((addr & 1) << PIN_A0) 
         | (((addr >> 1) & 1) << PIN_A1) 
         | (((addr >> 2) & 1) << PIN_A2)
-        | ((!((addr >> 13) & 1)) << PIN_CS);
+        | ((!((addr >> 13) & 1)) << PIN_CS)
+        | ((!((addr >> 14) & 1)) << PIN_AS);
 
     uint32_t toClear = ~toSet & (
-        (1 << PIN_A0 | 1 << PIN_A1 | 1 << PIN_A2 | 1 << PIN_CS));
+        (1 << PIN_A0 | 1 << PIN_A1 | 1 << PIN_A2 | 1 << PIN_CS | 1 << PIN_AS));
+
+    // uint32_t toSetExt = (((addr >> 3) & 1) << (PIN_A3-32+IN1_REMAP_SHIFT)) 
+    //     | (((addr >> 4) & 1) << (PIN_A4-32+IN1_REMAP_SHIFT)) 
+    //     | (((addr >> 5) & 1) << (PIN_A5-32+IN1_REMAP_SHIFT));
+
+    // uint32_t toClearExt = ~toSet & (
+    //     (1 << (PIN_A3-32+IN1_REMAP_SHIFT) | 1 << (PIN_A4-32+IN1_REMAP_SHIFT) | 1 << (PIN_A5-32+IN1_REMAP_SHIFT)));
 
     SET_PINS(toSet);
     CLEAR_PINS(toClear);
 
+    // SET_PINS(toSetExt);
+    // CLEAR_PINS(toClearExt);
+
 }
 
 inline void busSetRead() {
-    CLEAR_PINS(1 << PIN_RW);
+    SET_PINS(1 << PIN_RW); // RW is negated
     REG_WRITE(GPIO_ENABLE_W1TC_REG, dataPinsMask);
 }
 
@@ -110,7 +132,7 @@ inline uint8_t busDataRead() {
 }
 
 inline void busDataWrite(uint8_t data) {
-    SET_PINS(1 << PIN_RW);
+    CLEAR_PINS(1 << PIN_RW);
     REG_WRITE(GPIO_ENABLE_W1TS_REG, dataPinsMask);
 
     uint32_t toSet = ((data & 1) << PIN_D0) 

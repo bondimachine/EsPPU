@@ -53,11 +53,16 @@ D33 - Audio out
 #define PIN_RST 12
 #define PIN_VOUT 25
 
-#define PIN_A3 39
-#define PIN_A4 34
-#define PIN_A5 35
+#define PIN_A3 39 // 7 reg1
+#define PIN_A4 34 // 2 reg1
+#define PIN_A5 35 // 3 reg1
 #define PIN_AOUT 33
 #define PIN_AS 26
+
+// extended address pin values are remaped in the buffer value to bit range 6-11 as those pins values are unused
+// we add "4" because the min pin is 34 (34 - 32 = 2 => + 4 = 6)
+#define IN1_REMAP_SHIFT 4
+#define IN1_REMAP_MASK 0xFC0 // 6 1s shifted 6 positions
 
 // this has nothing to do here, but it is a single line to share with assembly
 #define COMMAND_BUFFER_SIZE 8192

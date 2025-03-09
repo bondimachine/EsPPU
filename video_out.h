@@ -59,6 +59,11 @@ void IRAM_ATTR video_isr(const volatile void* buf);
 extern "C"
 void IRAM_ATTR on_frame();
 
+#ifdef APU
+extern "C"
+uint8_t IRAM_ATTR get_audio_sample();
+#endif
+
 // simple isr
 void IRAM_ATTR i2s_intr_handler_video(void *arg)
 {
@@ -191,9 +196,9 @@ void video_init_hw(int line_width, int samples_per_cc)
     //                   v gnd
 
 #ifdef APU
-    ledcSetup(0,2000000,7);    // 625000 khz is as fast as we go w 7 bits
-    ledcAttachPin(PIN_AOUT, 0);
-    // ledcAttach(PIN_AOUT, 2000000,7);
+    ledcSetup(0,124800,8);    // 15600 hz * 8 bit = 124800
+     ledcAttachPin(PIN_AOUT, 0);
+    // ledcAttach(PIN_AOUT, 124800,8);
     ledcWrite(0,0);
 #endif
     //  IR input if used
@@ -206,7 +211,7 @@ void video_init_hw(int line_width, int samples_per_cc)
 inline void IRAM_ATTR audio_sample(uint8_t s)
 {
     auto& reg = LEDC.channel_group[0].channel[0];
-    reg.duty.duty = s << 4; // 25 bit (21.4)
+    reg.duty.duty = s; // 25 bit (21.4)
     reg.conf0.sig_out_en = 1; // This is the output enable control bit for channel
     reg.conf1.duty_start = 1; // When duty_num duty_cycle and duty_scale has been configured. these register won't take effect until set duty_start. this bit is automatically cleared by hardware
     reg.conf0.clk_en = 1;
@@ -602,26 +607,7 @@ void IRAM_ATTR pal_sync(uint16_t* line, int i)
     pal_sync2(line+_line_width/2,_line_width/2, t & 1);
 }
 
-//  audio is buffered as 6 bit unsigned samples
-uint8_t _audio_buffer[1024];
-uint32_t _audio_r = 0;
-uint32_t _audio_w = 0;
-void audio_write_16(const int16_t* s, int len, int channels)
-{
-    int b;
-    while (len--) {
-        if (_audio_w == (_audio_r + sizeof(_audio_buffer)))
-            break;
-        if (channels == 2) {
-            b = (s[0] + s[1]) >> 9;
-            s += 2;
-        } else
-            b = *s++ >> 8;
-        if (b < -32) b = -32;
-        if (b > 31) b = 31;
-        _audio_buffer[_audio_w++ & (sizeof(_audio_buffer)-1)] = b + 32;
-    }
-}
+uint8_t _audio_buffer;
 
 // test pattern, must be ram
 uint8_t _sin64[64] = {
@@ -687,9 +673,9 @@ void IRAM_ATTR video_isr(const volatile void* vbuf)
 
     ISR_BEGIN();
 
-    uint8_t s = _audio_r < _audio_w ? _audio_buffer[_audio_r++ & (sizeof(_audio_buffer)-1)] : 0x20;
-    audio_sample(s);
-    //audio_sample(_sin64[_x++ & 0x3F]);
+#ifdef APU
+    audio_sample(get_audio_sample());
+#endif
 
 #ifdef IR_PIN
     ir_sample();

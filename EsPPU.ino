@@ -77,6 +77,10 @@ volatile bool new_frame_ready = false;
 volatile uint32_t frame_count = 0;
 volatile uint32_t isr_frames = 0;
 
+#ifdef APU
+uint16_t apu_commands = 0;
+#endif 
+
 void on_frame() {    
     // this is on ISR so we don't do much work here
     if (new_frame_ready) {
@@ -88,6 +92,12 @@ void on_frame() {
     isr_frames++;
     new_frame = true;
 }
+
+#ifdef APU
+uint8_t get_audio_sample() {
+  return apu_sample();
+}
+#endif
 
 char* msg = "Welcome to EsPPU";
 void render_welcome() {
@@ -117,9 +127,9 @@ void setup() {
       pinMode(addressPins[pin], INPUT);
     }
 
-    pinMode(PIN_CS, INPUT);
+    pinMode(PIN_CS, INPUT_PULLUP);
     #ifdef APU
-        pinMode(PIN_AS, INPUT);
+        pinMode(PIN_AS, INPUT_PULLUP);
     #endif
 
     pinMode(PIN_CLK, INPUT);
@@ -165,6 +175,18 @@ void setup() {
 
     xTaskCreatePinnedToCore(render, "render", 1024, NULL, configMAX_PRIORITIES - 1, NULL, 0);
 
+    #ifdef APU
+
+    // 1.789773 Mhz NTSC, 1.662607 Mhz PAL
+    hw_timer_t *timer = timerBegin(0, 3, true); 
+    timerAlarmWrite(timer, ntsc ? 15 : 46, true); // 80 / (3*15) ~ 1.789 
+    timerAlarmEnable(timer); // Enable the alarm
+    // timerAttachInterrupt(timer, &apu_clock, true); // Attach the interrupt handling function
+
+    apu_init();
+
+    #endif
+
 }
 
 void render_new_frame() {
@@ -196,10 +218,18 @@ void loop() {
 
       uint32_t reg = command_buffer[(++command_buffer_read_index) % COMMAND_BUFFER_SIZE];
 
-      uint16_t address = 0x2000
-        | (reg >> PIN_A0 & 1)
+      uint16_t address = (reg >> PIN_A0 & 1)
         | ((reg >> PIN_A1 & 1) << 1)
         | ((reg >> PIN_A2 & 1) << 2);
+
+      #ifdef APU
+          bool as = !(reg & (1 << PIN_AS));
+          if (as) {
+              address |= ((reg >> (PIN_A3-32+IN1_REMAP_SHIFT) & 1) << 3)
+                | ((reg >> (PIN_A4-32+IN1_REMAP_SHIFT) & 1) << 4)
+                | ((reg >> (PIN_A5-32+IN1_REMAP_SHIFT) & 1) << 5);
+          }
+      #endif
 
       uint8_t data = 
         (reg >> PIN_D0 & 1)
@@ -211,9 +241,18 @@ void loop() {
         | ((reg >> PIN_D6 & 1) << 6)
         | ((reg >> PIN_D7 & 1) << 7);  
 
-      bool write = (reg & (1 << PIN_RW));
+      bool write = !(reg & (1 << PIN_RW));
 
-      nes_ppu_command(address, data, write);
+      #ifndef APU
+        nes_ppu_command(0x2000 | address, data, write);
+      #else
+        if (as) {
+          nes_apu_command(0x4000 | address, data, write);
+          apu_commands++;
+        } else {
+          nes_ppu_command(0x2000 | address, data, write);
+        }
+      #endif    
 
     }
     if (nmi_clear) {
@@ -244,10 +283,15 @@ void render(void* ignored) {
         Serial.print(command_buffer_write_index + 1);
         Serial.print(" delta ");
         Serial.print(command_buffer_write_index - command_buffer_read_index);
+#ifdef APU
+        Serial.print(" apu ");
+        Serial.print(apu_commands);
+#endif
         Serial.print(" fps ");
         Serial.println(frame_count * isr_frames / 60);
         isr_frames = 0;
         frame_count = 0;
+        apu_commands = 0;
       }
 
       if (nmi_output) {
@@ -301,7 +345,7 @@ void poll_bus(void* ignored) {
               | ((reg >> PIN_D6 & 1) << 6)
               | ((reg >> PIN_D7 & 1) << 7);  
 
-            bool write = (reg & (1 << PIN_RW));
+            bool write = !(reg & (1 << PIN_RW));
 
             #ifndef APU
               nes_ppu_command(0x2000 | address, data, write);

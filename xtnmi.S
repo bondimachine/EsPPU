@@ -26,8 +26,27 @@ xt_highint5:
     l32i    a2, a0, 0
 
     // check /CS. if not set, just leave
+#ifndef APU
     bbsi    a2, PIN_CS, exit
+#else
+    // check /CS. if set, avoid checking for /AS
+    bbci    a2, PIN_CS, write_command_to_buffer
 
+    // /CS not set, check for /AS. if not set, leave.
+    bbsi    a2, PIN_AS, exit
+
+    // /AS is set, read IN1
+    movi    a0, GPIO_IN1_REG
+    l32i    a1, a0, 0
+
+    // remap bits
+    slli    a1, a1, IN1_REMAP_SHIFT
+    movi    a0, IN1_REMAP_MASK
+    xor     a2, a2, a0
+    or      a2, a2, a1
+
+write_command_to_buffer:
+#endif
     movi    a0, command_buffer_write_index
     l32i    a1, a0, 0
     // Increment command_buffer_write_index, we do it here to spare memory access below

@@ -81,12 +81,16 @@ uint16_t frame_counter = 0;
 uint8_t frame_counter_step = 0;
 uint8_t even_clock = 1;
 
-#define FRAME_COUNTER_STEP 3728 // 4156 pal
-
 uint8_t length_counter_mapping[] = { 10, 254, 20,  2, 40,  4, 80,  6, 160,  8, 60, 10, 14, 12, 26, 14,
                                      12, 16, 24, 18, 48, 20, 96, 22, 192, 24, 72, 26, 16, 28, 32, 30 };
 
+#ifndef PAL
 uint16_t noise_period[] = { 4, 8, 16, 32, 64, 96, 128, 160, 202, 254, 380, 508, 762, 1016, 2034, 4068 };
+#define FRAME_COUNTER_STEP 3728
+#else
+uint16_t noise_period[] = { 4, 8, 14, 30, 60, 88, 118, 148, 188, 236, 354, 472, 708,  944, 1890, 3778 };
+#define FRAME_COUNTER_STEP 4156
+#endif
 
 const uint8_t pulse_duties[4][8] = {
     { 0, 1, 0, 0, 0, 0, 0, 0 },
@@ -95,8 +99,6 @@ const uint8_t pulse_duties[4][8] = {
     { 1, 0, 0, 1, 1, 1, 1, 1 }
 };
 
-// pal
-// uint16_t noise_period[] = { 4, 8, 14, 30, 60, 88, 118, 148, 188, 236, 354, 472, 708,  944, 1890, 3778 };
 
 inline uint8_t timer_step(struct channel* channel) {
     if (channel->enabled) {
@@ -396,4 +398,18 @@ uint8_t nes_apu_command(uint16_t address, uint8_t data, uint8_t write) {
 
     }
     return 0;
+}
+
+void apu_init() {
+    pulse1.channel.enabled = 0;
+    pulse1.channel.length_counter = 0;
+    pulse2.channel.enabled = 0;
+    pulse2.channel.length_counter = 0;
+    triangle.channel.enabled = 0;
+    triangle.channel.length_counter = 0;
+    triangle.sequence = -15;
+    triangle.linear_counter_reload_flag = 0;
+    noise.channel.enabled = 0;
+    noise.channel.length_counter = 0;
+    noise.shift_register = 1;
 }

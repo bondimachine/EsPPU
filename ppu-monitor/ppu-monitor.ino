@@ -43,7 +43,7 @@ void setup() {
     pinMode(addressPins[pin], INPUT);
   }
 
-  pinMode(PIN_CS, INPUT);
+  pinMode(PIN_CS, INPUT_PULLUP);
   pinMode(PIN_CLK, INPUT);
 
   gpio_config_t io_conf = {
@@ -110,7 +110,7 @@ void loop() {
         | ((reg >> PIN_D6 & 1) << 6)
         | ((reg >> PIN_D7 & 1) << 7);  
 
-      char rw = (reg & (1 << PIN_RW)) ? 'W' : 'R';
+      char rw = (reg & (1 << PIN_RW)) ? 'R' : 'W';
 
       const char* command;
       switch(address) {
@@ -150,13 +150,14 @@ void loop() {
           break;
       }
 
-      // Serial.print(command_buffer_read_index);
-      // Serial.print(" ");
-      // Serial.print(command);
-      // Serial.print(" ");
-      // Serial.print(rw);
-      // Serial.print(" ");
-      // Serial.println(data, HEX);
+      Serial.print(command_buffer_read_index);
+      Serial.print(" ");
+      //Serial.print(command);
+      Serial.print(address, HEX);
+      Serial.print(" ");
+      Serial.print(rw);
+      Serial.print(" ");
+      Serial.println(data, HEX);
 
     }
 }
