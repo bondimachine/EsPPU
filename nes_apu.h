@@ -9,7 +9,7 @@ struct channel {
     uint8_t length_counter; // $4003 LLLLLxxx
 
     uint16_t timer; // high $4003 xxxxTTT, lo $4002 TTTTTTTT
-    uint16_t timer_count;
+    int32_t timer_count;
 };
 
 struct envelope {
@@ -79,7 +79,6 @@ struct noise_channel noise;
 uint8_t frame_counter_mode_5_step = 0; // $4017 Mxxxxxxxxx 0 = 4-step, 1 = 5-step
 uint16_t frame_counter = 0;
 uint8_t frame_counter_step = 0;
-uint8_t even_clock = 1;
 
 uint8_t length_counter_mapping[] = { 10, 254, 20,  2, 40,  4, 80,  6, 160,  8, 60, 10, 14, 12, 26, 14,
                                      12, 16, 24, 18, 48, 20, 96, 22, 192, 24, 72, 26, 16, 28, 32, 30 };
@@ -100,15 +99,19 @@ const uint8_t pulse_duties[4][8] = {
 };
 
 
-inline uint8_t timer_step(struct channel* channel) {
-    if (channel->enabled) {
-        channel->timer_count--;
-        if (channel->timer_count == 0) {
-            channel->timer_count = channel->timer;
-            return 1;
+inline uint8_t timer_step(struct channel* channel, uint8_t steps) {
+
+    uint8_t triggers = 0;
+
+    if (channel->enabled && channel->timer > 0) {
+        channel->timer_count -= steps;
+        while (channel->timer_count <= 0) {
+            channel->timer_count += channel->timer;
+            triggers++;
         }
     }
-    return 0;
+
+    return triggers;
 }
 
 inline void length_step(struct channel* channel) {
@@ -169,69 +172,63 @@ inline void triangle_linear_counter_step() {
     }
 }
 
-void apu_clock() {
-    if (timer_step(&triangle.channel)) {
-        triangle.sequence++;
-        if (triangle.sequence>15) {
-            triangle.sequence = -15;
-        }
+
+void apu_clock(uint8_t clocks) {
+
+    // traingle is twice the clock
+    uint8_t triangle_steps = timer_step(&triangle.channel, clocks*2);
+    if (triangle_steps > 0) {
+        triangle.sequence = (triangle.sequence + triangle_steps) % 32;
+    }
+    
+    uint8_t pulse1_steps = timer_step(&pulse1.channel, clocks);
+    if (pulse1_steps > 0) {
+        pulse1.sequence = (pulse1.sequence + pulse1_steps) % 8;
     }
 
-    if (even_clock) {
-        even_clock = 0;
-
-        if (timer_step(&noise.channel)) {
-            uint8_t feedback = (noise.shift_register & 1) ^ ((noise.shift_register >> (noise.noise_mode ? 6 : 1)) & 1);
-            noise.shift_register = (noise.shift_register >> 1) | (feedback << 14);
-        }
-
-        if (timer_step(&pulse1.channel)) {
-            pulse1.sequence++;
-            if (pulse1.sequence == 8) {
-                pulse1.sequence = 0;
-            }
-        }
-
-        if (timer_step(&pulse2.channel)) {
-            pulse2.sequence++;
-            if (pulse2.sequence == 8) {
-                pulse2.sequence = 0;
-            }
-        }
-
-
-        frame_counter++;
-        if (frame_counter == FRAME_COUNTER_STEP) {
-            frame_counter = 0;
-            frame_counter_step++;
-
-            if (!(frame_counter_mode_5_step && frame_counter == 4)) {
-                if (frame_counter_step >= 4) {
-                    frame_counter_step = 0;
-                }
-
-                envelope_step(&pulse1.envelope, pulse1.channel.infinite_play);
-                envelope_step(&pulse2.envelope, pulse2.channel.infinite_play);
-                envelope_step(&noise.envelope, noise.channel.infinite_play);
-
-                triangle_linear_counter_step();
-
-                if (frame_counter_step == 0 || frame_counter_step == 2) {
-                    length_step(&pulse1.channel);
-                    length_step(&pulse2.channel);
-                    length_step(&triangle.channel);
-                    length_step(&noise.channel);
-                    sweep_step(&pulse1.sweep, &pulse1.channel, 1);
-                    sweep_step(&pulse2.sweep, &pulse2.channel, 0);
-                }
-            }
-
-        }
-
-
-    } else {
-        even_clock = 1;
+    uint8_t pulse2_steps = timer_step(&pulse2.channel, clocks);
+    if (pulse2_steps > 0) {
+        pulse2.sequence = (pulse2.sequence + pulse2_steps) % 8;
     }
+
+    uint8_t noise_steps = timer_step(&noise.channel, clocks);
+
+    while (noise_steps > 0) {
+        uint8_t feedback = (noise.shift_register & 1) ^ ((noise.shift_register >> (noise.noise_mode ? 6 : 1)) & 1);
+        noise.shift_register = (noise.shift_register >> 1) | (feedback << 14);
+        noise_steps--;
+    }
+
+    frame_counter += clocks;
+
+    // assuming clocks < FRAME_COUNTER_STEP
+    if (frame_counter >= FRAME_COUNTER_STEP) {
+        frame_counter -= FRAME_COUNTER_STEP;
+        frame_counter_step++;
+
+        if (!(frame_counter_mode_5_step && frame_counter == 4)) {
+            if (frame_counter_step >= 4) {
+                frame_counter_step = 0;
+            }
+
+            envelope_step(&pulse1.envelope, pulse1.channel.infinite_play);
+            envelope_step(&pulse2.envelope, pulse2.channel.infinite_play);
+            envelope_step(&noise.envelope, noise.channel.infinite_play);
+
+            triangle_linear_counter_step();
+
+            if (frame_counter_step == 0 || frame_counter_step == 2) {
+                length_step(&pulse1.channel);
+                length_step(&pulse2.channel);
+                length_step(&triangle.channel);
+                length_step(&noise.channel);
+                sweep_step(&pulse1.sweep, &pulse1.channel, 1);
+                sweep_step(&pulse2.sweep, &pulse2.channel, 0);
+            }
+        }
+
+    }
+
 }
 
 inline uint8_t volume(struct envelope* envelope) {
@@ -263,7 +260,9 @@ uint8_t apu_sample() {
     }
 
     if (triangle.channel.enabled && (triangle.channel.length_counter > 0 && triangle.linear_counter > 0)) {
-        tnd_out = abs(triangle.sequence) * 3;
+        int8_t seq = triangle.sequence - 15;
+        // the 0 value in the sequence is repeated; so we shift all the positive part to start at 0.
+        tnd_out = (seq > 0 ? seq - 1 : -seq) * 3;
     }
     if (noise.channel.enabled && ((noise.channel.length_counter > 0) && (noise.shift_register & 1))) {
         tnd_out += volume(&noise.envelope) * 2;
@@ -353,7 +352,7 @@ uint8_t nes_apu_command(uint16_t address, uint8_t data, uint8_t write) {
             break;
         case 0x400E:
             noise.noise_mode = (data >> 7) & 1;
-            noise.channel.timer = noise_period[data & 0xF];
+            noise.channel.timer = noise_period[data & 0xF] / 2; // it is expressed in CPU clocks
             noise.channel.timer_count = noise.channel.timer;
             break;
         case 0x400F:
@@ -369,7 +368,7 @@ uint8_t nes_apu_command(uint16_t address, uint8_t data, uint8_t write) {
                 pulse2.channel.length_counter = 0;
                 triangle.channel.enabled = (data >> 2) & 1;
                 triangle.channel.length_counter = 0;
-                triangle.sequence = -15;
+                triangle.sequence = 0;
                 triangle.linear_counter_reload_flag = 0;
                 noise.channel.enabled = (data >> 3) & 1;
                 noise.channel.length_counter = 0;
@@ -391,7 +390,6 @@ uint8_t nes_apu_command(uint16_t address, uint8_t data, uint8_t write) {
             if (frame_counter_mode_5_step) {
                 frame_counter = 0;
                 frame_counter_step = 0;
-                even_clock = 1;
             }
             frame_counter = 0;
             break;
@@ -407,7 +405,7 @@ void apu_init() {
     pulse2.channel.length_counter = 0;
     triangle.channel.enabled = 0;
     triangle.channel.length_counter = 0;
-    triangle.sequence = -15;
+    triangle.sequence = 0;
     triangle.linear_counter_reload_flag = 0;
     noise.channel.enabled = 0;
     noise.channel.length_counter = 0;

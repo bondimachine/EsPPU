@@ -76,15 +76,13 @@ uint8_t buffer[BUFFER_SIZE];
 uint32_t buffer_count = 0;
 
 void frames(int count) {
-    // in the came, every 10 NMIs we have an apu register update
-    //  1.789773Mhz / 22.050Khz ~ 81 clocks per sample
+    // in the game, every 10 NMIs we have an apu register update
+    //  (1.789773Mhz / 2) / 22.050Khz = 40 clocks per sample
     //  22050 / 60 ~ 367 samples per frame
 
     for (int frame = 0; frame < count; frame++) {
         for (int sample = 0; sample < 368; sample++) {
-            for (int clock = 0; clock < 81; clock++) {
-                apu_clock();
-            }
+            apu_clock(40);
             buffer[buffer_count++] = apu_sample();
         }
     }
