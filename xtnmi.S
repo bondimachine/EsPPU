@@ -42,7 +42,9 @@ xt_highint5:
     // remap bits
     slli    a1, a1, IN1_REMAP_SHIFT
     movi    a0, IN1_REMAP_MASK
-    xor     a2, a2, a0
+    and     a1, a1, a0
+    movi    a0, ~IN1_REMAP_MASK
+    and     a2, a2, a0
     or      a2, a2, a1
 
 write_command_to_buffer:

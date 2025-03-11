@@ -67,20 +67,20 @@ uint8_t game_over_trg_length[] = {0x01, 0x00, 0x01, 0x00, 0x02, 0x00, 0x01, 0x00
 
 void IRAM_ATTR onNMI(); // forward
 
+#define PIN_LF 39 // VN
+#define PIN_RT 36
+#define PIN_UP 35
+#define PIN_DN 34 // VP
 
-#define PIN_LF 25
-#define PIN_RT 12
-#define PIN_UP 33
-#define PIN_DN 36 // VP
 
 void setup() {
     
     Serial.begin(115200);
 
-    pinMode(PIN_LF, INPUT);
+    pinMode(PIN_LF, INPUT_PULLUP);
     pinMode(PIN_RT, INPUT_PULLUP);
-    pinMode(PIN_UP, INPUT); 
-    pinMode(PIN_DN, INPUT);
+    pinMode(PIN_UP, INPUT_PULLUP); 
+    pinMode(PIN_DN, INPUT_PULLUP);
 
     setupPins();
 
@@ -204,7 +204,6 @@ void loop() {
 
     bool updated = false;
 
-  
     if (digitalRead(PIN_LF) == LOW) {
         if (!debounce) {
           color = ((color - 1) & 0x0F) | (color & 0x30);
@@ -212,8 +211,10 @@ void loop() {
           updated = true;
           debounce = true;
         } else if (digitalRead(PIN_RT) == LOW) {
-          sound_frame = 0;
-          Serial.println("sound start");
+          if (sound_frame != 0) {
+            sound_frame = 0;
+            Serial.println("sound start");
+          }
         }
     } else if (digitalRead(PIN_RT) == LOW) {
         if (!debounce) {

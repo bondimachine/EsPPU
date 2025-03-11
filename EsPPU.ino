@@ -79,6 +79,10 @@ volatile uint32_t isr_frames = 0;
 
 #ifdef APU
 uint16_t apu_commands = 0;
+
+void IRAM_ATTR apu_clock_timer() {
+  apu_clock(25);
+}
 #endif 
 
 void on_frame() {    
@@ -177,11 +181,16 @@ void setup() {
 
     #ifdef APU
 
-    // 1.789773 Mhz NTSC, 1.662607 Mhz PAL
+    // APU clock is CPU/2 so 894.886 Khz NTSC, 831.303 Khz PAL
+    // unfortunatelly, a timer frequency set anything below 320khz freezes the ESP
+    // but we should be fine as far as we do our math as frequent as our sampling rate.
+    // Sampling rate is 15.720khz NTSC, 15.600khz PAL (scanline)
+    // Will do 1/25 of APU freq which is a bit more than twice sampling rate
+
     hw_timer_t *timer = timerBegin(0, 3, true); 
-    timerAlarmWrite(timer, ntsc ? 15 : 46, true); // 80 / (3*15) ~ 1.789 
+    timerAlarmWrite(timer, ntsc ? 745 : 802, true);
     timerAlarmEnable(timer); // Enable the alarm
-    // timerAttachInterrupt(timer, &apu_clock, true); // Attach the interrupt handling function
+    timerAttachInterrupt(timer, &apu_clock_timer, false); // Attach the interrupt handling function
 
     apu_init();
 
@@ -291,14 +300,12 @@ void render(void* ignored) {
         Serial.println(frame_count * isr_frames / 60);
         isr_frames = 0;
         frame_count = 0;
-        apu_commands = 0;
       }
 
       if (nmi_output) {
         digitalWrite(PIN_INT, LOW);
       }
-    }  
-
+    }
   }
 }
 

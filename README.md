@@ -48,6 +48,14 @@ D35 - A5
 D33 - Audio out
 /AS - D26
 
+Audio output should pass thru a simple rc filter
+
+33 ----/\/\/\/----|------- audio out
+         1k       |
+                 ---
+                 --- 10nf
+                  |
+                  v gnd
 
 
 # Custom sdkconfig for Arduino Core

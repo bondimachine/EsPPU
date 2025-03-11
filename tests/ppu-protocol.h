@@ -60,12 +60,12 @@ void setupPins() {
     digitalWrite(PIN_A1, LOW);
     pinMode(PIN_A2, OUTPUT);
     digitalWrite(PIN_A2, LOW);
-    // pinMode(PIN_A3, OUTPUT);
-    // digitalWrite(PIN_A3, LOW);
-    // pinMode(PIN_A4, OUTPUT);
-    // digitalWrite(PIN_A4, LOW);
-    // pinMode(PIN_A5, OUTPUT);
-    // digitalWrite(PIN_A5, LOW);
+    pinMode(PIN_A3_OUT, OUTPUT);
+    digitalWrite(PIN_A3_OUT, LOW);
+    pinMode(PIN_A4_OUT, OUTPUT);
+    digitalWrite(PIN_A4_OUT, LOW);
+    pinMode(PIN_A5_OUT, OUTPUT);
+    digitalWrite(PIN_A5_OUT, LOW);
     pinMode(PIN_CS, OUTPUT);
     digitalWrite(PIN_CS, HIGH);
     pinMode(PIN_AS, OUTPUT);
@@ -81,32 +81,23 @@ void setupPins() {
 #define SET_PINS(x) REG_WRITE(GPIO_OUT_W1TS_REG, x)
 #define CLEAR_PINS(x) REG_WRITE(GPIO_OUT_W1TC_REG, x)
 
-#define SET_PINS_EXT(x) REG_WRITE(GPIO_OUT1_W1TS_REG, x)
-#define CLEAR_PIN_EXT(x) REG_WRITE(GPIO_OUT1_W1TC_REG, x)
-
 inline void busAddr(uint16_t addr) {
 
     uint32_t toSet = ((addr & 1) << PIN_A0) 
         | (((addr >> 1) & 1) << PIN_A1) 
         | (((addr >> 2) & 1) << PIN_A2)
+        | (((addr >> 3) & 1) << PIN_A3_OUT)
+        | (((addr >> 4) & 1) << PIN_A4_OUT)
         | ((!((addr >> 13) & 1)) << PIN_CS)
         | ((!((addr >> 14) & 1)) << PIN_AS);
 
     uint32_t toClear = ~toSet & (
-        (1 << PIN_A0 | 1 << PIN_A1 | 1 << PIN_A2 | 1 << PIN_CS | 1 << PIN_AS));
-
-    // uint32_t toSetExt = (((addr >> 3) & 1) << (PIN_A3-32+IN1_REMAP_SHIFT)) 
-    //     | (((addr >> 4) & 1) << (PIN_A4-32+IN1_REMAP_SHIFT)) 
-    //     | (((addr >> 5) & 1) << (PIN_A5-32+IN1_REMAP_SHIFT));
-
-    // uint32_t toClearExt = ~toSet & (
-    //     (1 << (PIN_A3-32+IN1_REMAP_SHIFT) | 1 << (PIN_A4-32+IN1_REMAP_SHIFT) | 1 << (PIN_A5-32+IN1_REMAP_SHIFT)));
+        (1 << PIN_A0 | 1 << PIN_A1 | 1 << PIN_A2 | 1 << PIN_A3_OUT | 1 << PIN_A4_OUT | 1 << PIN_CS | 1 << PIN_AS));
 
     SET_PINS(toSet);
     CLEAR_PINS(toClear);
 
-    // SET_PINS(toSetExt);
-    // CLEAR_PINS(toClearExt);
+    digitalWrite(PIN_A5_OUT, ((addr >> 5) & 1));
 
 }
 
