@@ -11,6 +11,7 @@ hw_timer_t *nmiTimer = NULL;
 bool nmi = false;
 
 volatile bool frame = false;
+volatile uint32_t vblank = 0;
 volatile uint32_t frame_count = 0;
 
 
@@ -43,7 +44,7 @@ void setup() {
     pinMode(addressPins[pin], INPUT);
   }
 
-  pinMode(PIN_CS, INPUT_PULLUP);
+  pinMode(PIN_CS, INPUT);
   pinMode(PIN_CLK, INPUT);
 
   gpio_config_t io_conf = {
@@ -76,6 +77,7 @@ void loop() {
 
     if (frame) {
       frame = false;
+      vblank = 0;
       if (nmi) {
         digitalWrite(PIN_INT, LOW);
       }
@@ -150,18 +152,21 @@ void loop() {
           break;
       }
 
-      Serial.print(command_buffer_read_index);
-      Serial.print(" ");
-      //Serial.print(command);
-      Serial.print(address, HEX);
-      Serial.print(" ");
-      Serial.print(rw);
-      Serial.print(" ");
-      Serial.println(data, HEX);
-
+      if (address != 0x2004 && address != 0x2007) {
+        Serial.print(command_buffer_read_index);
+        Serial.print(" ");
+        //Serial.print(command);
+        Serial.print(address, HEX);
+        Serial.print(" ");
+        Serial.print(rw);
+        Serial.print(" ");
+        Serial.println(data, HEX);
+        
+      }
     }
 }
 
 void IRAM_ATTR onFrame() {
   frame = true;
+  vblank = 1 << PIN_D7;
 }

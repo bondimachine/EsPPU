@@ -17,7 +17,7 @@ volatile uint32_t command_buffer[COMMAND_BUFFER_SIZE];
 volatile uint32_t command_buffer_write_index = 0xFFFFFFFF; // we increment first, then write
 volatile uint32_t command_buffer_read_index = 0xFFFFFFFF;
 
-
+volatile uint32_t vblank = 0;
 
 // this is dark magic that results of running this https://github.com/rossumur/esp_8_bit/blob/55eb7b86eda290d96b02c38c3e787efb8ae6a8c0/src/emu_nofrendo.cpp#L127
 #ifndef PAL
@@ -131,9 +131,9 @@ void setup() {
       pinMode(addressPins[pin], INPUT);
     }
 
-    pinMode(PIN_CS, INPUT_PULLUP);
+    pinMode(PIN_CS, INPUT);
     #ifdef APU
-        pinMode(PIN_AS, INPUT_PULLUP);
+        pinMode(PIN_AS, INPUT);
     #endif
 
     pinMode(PIN_CLK, INPUT);
@@ -263,8 +263,15 @@ void loop() {
         }
       #endif    
 
+      if (address == 1 && write) {
+        Serial.print("mask ");
+        Serial.println(data, HEX);
+      }
     }
+
+
     if (nmi_clear) {
+      vblank = 0;
       nmi_clear = false;
       digitalWrite(PIN_INT, HIGH);
     }
@@ -281,6 +288,7 @@ void render(void* ignored) {
   for(;;) {
     if (new_frame && !new_frame_ready) {
 
+      vblank = 1 << PIN_D7;
       new_frame = false;
 
       render_new_frame();
