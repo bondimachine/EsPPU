@@ -17,8 +17,6 @@ volatile uint32_t command_buffer[COMMAND_BUFFER_SIZE];
 volatile uint32_t command_buffer_write_index = 0xFFFFFFFF; // we increment first, then write
 volatile uint32_t command_buffer_read_index = 0xFFFFFFFF;
 
-volatile uint32_t vblank = 0;
-
 // this is dark magic that results of running this https://github.com/rossumur/esp_8_bit/blob/55eb7b86eda290d96b02c38c3e787efb8ae6a8c0/src/emu_nofrendo.cpp#L127
 #ifndef PAL
 uint32_t nes_4_phase[64] = {
@@ -76,6 +74,9 @@ volatile bool new_frame_ready = false;
 
 volatile uint32_t frame_count = 0;
 volatile uint32_t isr_frames = 0;
+uint8_t nmi_frame_skip = 0;
+
+uint32_t stats[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
 #ifdef APU
 uint16_t apu_commands = 0;
@@ -261,20 +262,18 @@ void loop() {
         } else {
           nes_ppu_command(0x2000 | address, data, write);
         }
-      #endif    
+      #endif
 
-      if (address == 1 && write) {
-        Serial.print("mask ");
+      if (address < 2 && write) {
+        Serial.print(0x2000 | address, HEX);
+        Serial.print(" ");
         Serial.println(data, HEX);
       }
+      stats[address + (write ? 8 : 0)]++;
+
     }
 
 
-    if (nmi_clear) {
-      vblank = 0;
-      nmi_clear = false;
-      digitalWrite(PIN_INT, HIGH);
-    }
   }  
 
 }
@@ -308,11 +307,26 @@ void render(void* ignored) {
         Serial.println(frame_count * isr_frames / 60);
         isr_frames = 0;
         frame_count = 0;
+
+        for (int i = 0; i<16; i++) {
+          Serial.print(stats[i]);
+          Serial.print(i == 7 ? "\n" : "\t");
+          stats[i] = 0;
+        }
+        Serial.println();
+
       }
 
       if (nmi_output) {
-        digitalWrite(PIN_INT, LOW);
+        if (++nmi_frame_skip == 15) {
+          digitalWrite(PIN_INT, LOW);
+          asm("nop");
+          asm("nop");
+          digitalWrite(PIN_INT, HIGH);
+          nmi_frame_skip = 0;
+        }
       }
+
     }
   }
 }

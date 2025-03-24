@@ -24,7 +24,7 @@ uint8_t scroll_y = 0;
 uint16_t scroll_y_high = 0;
 
 bool nmi_output = false;
-bool nmi_clear = false;
+volatile uint32_t vblank = 0;
 
 bool grayscale = false;
 bool left8pixels_background = false;
@@ -171,10 +171,6 @@ inline uint8_t nes_ppu_command(uint16_t address, uint8_t data, bool write) {
                 background_pattern_address = data & (1 << 4) ? 0x1000 : 0;
                 sprite_height = data & (1 << 5) ? 16 : 8;
                 nmi_output = data & (1 << 7);
-
-                if (!nmi_output) {
-                    nmi_clear = true;
-                }
             }
             break;
         case 0x2001:
@@ -194,7 +190,7 @@ inline uint8_t nes_ppu_command(uint16_t address, uint8_t data, bool write) {
         case 0x2002:
             // PPUSTATUS
             if (!write) {
-                nmi_clear = true;
+                vblank = 0;
             }
             write_latch = false;
             break;
@@ -208,6 +204,7 @@ inline uint8_t nes_ppu_command(uint16_t address, uint8_t data, bool write) {
             // OAMDATA
             if (write) {
                 oam[oam_addr] = data;
+                oam_addr++;
             }
             break;
         case 0x2005:

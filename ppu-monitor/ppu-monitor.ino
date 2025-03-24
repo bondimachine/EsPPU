@@ -80,6 +80,9 @@ void loop() {
       vblank = 0;
       if (nmi) {
         digitalWrite(PIN_INT, LOW);
+        asm("nop");
+        asm("nop");
+        digitalWrite(PIN_INT, HIGH);
       }
       frame_count++;
       if(frame_count == 60) {
@@ -120,9 +123,6 @@ void loop() {
           command = "PPUCTRL";
           if (rw == 'W') {
             nmi = data & (1 << 7);
-            if (!nmi) {
-              digitalWrite(PIN_INT, HIGH);
-            }
           } 
           break;
         case 0x2001:
@@ -130,10 +130,6 @@ void loop() {
           break;
         case 0x2002:
           command = "PPUSTATUS";
-          if (rw == 'R') {
-            // clear NMI, set to high impedance
-            digitalWrite(PIN_INT, HIGH);
-          }  
           break;
         case 0x2003:
           command = "OAMADDR";

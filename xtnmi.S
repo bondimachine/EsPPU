@@ -55,15 +55,15 @@ write_command_to_buffer:
     bnall   a2, a0, do_write
 
     // make sure we signal vblank to our reader
-    // set D7 pin to output
-    movi    a0, GPIO_ENABLE_W1TS_REG
-    movi    a1, 1 << PIN_D7
-    s32i    a1, a0, 0
-
     // set D7 = vblank
     movi    a1, vblank
     l32i    a1, a1, 0
     movi    a0, GPIO_OUT_W1TS_REG
+    s32i    a1, a0, 0
+
+    // set D7 pin to output
+    movi    a0, GPIO_ENABLE_W1TS_REG
+    movi    a1, 1 << PIN_D7
     s32i    a1, a0, 0
 
 do_write:
@@ -88,13 +88,13 @@ do_write:
     movi    a0, PPU_STATUS_READ
     bnall   a2, a0, exit
 
-    // put D7 in input
+    // set D7 = 0, for next round
     movi    a1, 1 << PIN_D7
-    movi    a0, GPIO_ENABLE_W1TC_REG
+    movi    a0, GPIO_OUT_W1TC_REG
     s32i    a1, a0, 0
 
-    // set D7 = 0, for next round
-    movi    a0, GPIO_OUT_W1TC_REG
+    // put D7 in input
+    movi    a0, GPIO_ENABLE_W1TC_REG
     s32i    a1, a0, 0
 
 exit:

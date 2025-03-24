@@ -46,12 +46,11 @@ inline void ppuDataWrite(uint8_t data) {
 }
 
 void oamDma(uint8_t* data, uint16_t size) {
+    oamAddr(0);
     for (uint16_t i = 0; i < size; i++) {
-        oamAddr(i);
         oamDataWrite(data[i]);
     }
     for (uint16_t i = size; i < 256; i++) {
-        oamAddr(i);
         oamDataWrite(0);
     }
 } 
