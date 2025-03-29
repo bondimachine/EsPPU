@@ -74,7 +74,6 @@ volatile bool new_frame_ready = false;
 
 volatile uint32_t frame_count = 0;
 volatile uint32_t isr_frames = 0;
-uint8_t nmi_frame_skip = 0;
 
 uint32_t stats[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
@@ -95,6 +94,12 @@ void on_frame() {
       back_buffer_lines = current;
     }
     isr_frames++;
+    if (nmi_output) {
+      digitalWrite(PIN_INT, LOW);
+      asm("nop");
+      asm("nop");
+      digitalWrite(PIN_INT, HIGH);
+    }
     new_frame = true;
 }
 
@@ -104,9 +109,9 @@ uint8_t get_audio_sample() {
 }
 #endif
 
-char* msg = "Welcome to EsPPU";
+String msg = "Welcome to EsPPU";
 void render_welcome() {
-    int len = strlen(msg);
+    int len = msg.length();
     int center = (42 - len) / 2;
     for(int x = 0; x < len; x++) {
       draw_char(_lines, msg[x], x+center, 15, 0x30, 0x0E);
@@ -114,6 +119,44 @@ void render_welcome() {
     }
 }
 
+void load_config() {
+
+  String chr_file_name = "/test.chr";
+
+  File cfg_file = LittleFS.open("/config.ini");
+
+  if (cfg_file) {
+    while (cfg_file.available()) {
+      String line = cfg_file.readStringUntil('\n');
+      int eq = line.indexOf('=');
+      if(eq != -1) {
+        String key = line.substring(0, eq);
+        String value = line.substring(eq + 1);
+        if (key == "chr") {
+          chr_file_name = value;
+          continue;
+        }
+      }
+      Serial.print("ignoring unknown config ");
+      Serial.println(line);
+    }
+  }
+
+  File chr_file = LittleFS.open(chr_file_name);
+
+  if (!chr_file) {
+    msg = "can't open " + chr_file_name;
+    Serial.println(msg);
+  } else {
+    Serial.println("loading " + chr_file_name);
+  }
+
+  int x = 0;
+  while(chr_file.available()) {
+    chr[x++] = chr_file.read();
+  }
+
+}
 
 void setup() {
     setCpuFrequencyMhz(240);
@@ -163,17 +206,7 @@ void setup() {
       Serial.println(msg);
     }
 
-    File chr_file = LittleFS.open("/test.chr");
-
-    if (!chr_file) {
-      msg = "can't open test.chr";
-      Serial.println(msg);
-    }
-
-    int x = 0;
-    while(chr_file.available()) {
-      chr[x++] = chr_file.read();
-    }
+    load_config();
 
     render_welcome();
     new_frame_ready = true;
@@ -316,17 +349,6 @@ void render(void* ignored) {
         Serial.println();
 
       }
-
-      if (nmi_output) {
-        if (++nmi_frame_skip == 15) {
-          digitalWrite(PIN_INT, LOW);
-          asm("nop");
-          asm("nop");
-          digitalWrite(PIN_INT, HIGH);
-          nmi_frame_skip = 0;
-        }
-      }
-
     }
   }
 }

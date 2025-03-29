@@ -4,7 +4,7 @@ ESP32 based NES PPU (2C0x) replacement
 
 # Pinout
 
-ESP32 Dev Kit V1 to 2C02 (assuming 3.3v levels)
+ESP32 Dev Kit V1 to 2C02 (don't worry, ESP32 supports 5v levels in GPIO)
 
 ```
                    .--\/--.
