@@ -249,9 +249,9 @@ void loop() {
 
   Serial.println("starting bus read");
 
-  // the 26 comes from here https://github.com/espressif/esp-idf/blob/0f0068fff3ab159f082133aadfa9baf4fc0c7b8d/components/esp_hw_support/port/esp32/esp_cpu_intr.c#L170 
-  intr_matrix_set(xPortGetCoreID(), ETS_GPIO_INTR_SOURCE, 26);
-  ESP_INTR_ENABLE( 26 );
+  // the 14 comes from here https://github.com/espressif/esp-idf/blob/0f0068fff3ab159f082133aadfa9baf4fc0c7b8d/components/esp_hw_support/port/esp32/esp_cpu_intr.c#L170 
+  intr_matrix_set(xPortGetCoreID(), ETS_GPIO_INTR_SOURCE, 14);
+  ESP_INTR_ENABLE( 14 );
 
   for(;;) {
 

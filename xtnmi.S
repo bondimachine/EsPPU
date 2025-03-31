@@ -11,15 +11,18 @@ _stack:
     .space      12
 
     .section .iram1,"ax"
-    .global     xt_highint5
-    .type       xt_highint5,@function
+    .global     xt_nmi
+    .type       xt_nmi,@function
     .align      4
-xt_highint5:
+xt_nmi:
     // sadly to clear the interrupt mark, we need two free registers (address and data), 
     // so we cannot help building some stack to store them even for discarded clocks.
     movi    a0, _stack
     s32i    a1, a0, 0 // push a1
     s32i    a2, a0, 4 // push a2
+
+
+    // until here we have ~350ns, even on NMI :-S
 
     // read pins status
     movi    a0, GPIO_IN_REG
@@ -49,7 +52,6 @@ xt_highint5:
 
 write_command_to_buffer:
 #endif
-
     // if we are getting a PPU_STATUS read
     movi    a0, PPU_STATUS_READ
     bnall   a2, a0, do_write
@@ -97,18 +99,21 @@ do_write:
     movi    a0, GPIO_ENABLE_W1TC_REG
     s32i    a1, a0, 0
 
+
 exit:
     /* Clear interupt on CLK pin */
     movi    a0, GPIO_STATUS_W1TC_REG
     movi    a1, (1 << PIN_CLK)
     s32i    a1, a0, 0
 
+    // until here we spent ~250ns
+
     movi    a0, _stack
     l32i    a1, a0, 0 // restore a1
     l32i    a2, a0, 4 // restore a2
 
-    rsr     a0, EXCSAVE5 // restore a0
-    rfi     5
+    rsr     a0, EXCSAVE + XCHAL_NMILEVEL // restore a0
+    rfi     XCHAL_NMILEVEL
 
     .global ld_include_xt_nmi
 ld_include_xt_nmi:
