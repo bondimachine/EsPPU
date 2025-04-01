@@ -175,6 +175,9 @@ void setup() {
       pinMode(addressPins[pin], INPUT);
     }
 
+    // for debugging 
+    // pinMode(12, OUTPUT);
+
     pinMode(PIN_CS, INPUT);
     #ifdef APU
         pinMode(PIN_AS, INPUT);
@@ -183,14 +186,19 @@ void setup() {
     pinMode(PIN_CLK, INPUT);
 
     gpio_config_t io_conf = {
-        .pin_bit_mask = (1ULL << PIN_CLK),
+        .pin_bit_mask = (1ULL << PIN_CS),
         .mode = GPIO_MODE_INPUT,
         .pull_up_en = GPIO_PULLUP_DISABLE,
         .pull_down_en = GPIO_PULLDOWN_DISABLE,
-        .intr_type = GPIO_INTR_POSEDGE
+        .intr_type = GPIO_INTR_NEGEDGE
     };
 
     gpio_config(&io_conf);
+
+    #ifdef APU
+      io_conf.pin_bit_mask = (1ULL << PIN_AS);
+      gpio_config(&io_conf);
+    #endif
 
     uint8_t* _front_buffer = (uint8_t*)calloc(240*256, 1);
     uint8_t* _back_buffer = (uint8_t*)calloc(240*256, 1);
