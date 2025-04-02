@@ -160,10 +160,10 @@ inline void nes_ppu_scanline(uint8_t* buf, int y) {
 }
 
 inline uint8_t nes_ppu_command(uint16_t address, uint8_t data, bool write) {
-    switch(address) {
-        case 0x2000:
-            // PPUCTRL
-            if (write) {
+    if (write) {
+        switch(address) {
+            case 0x2000:
+                // PPUCTRL
                 scroll_x_high = (data & 1) ? 256 : 0;
                 scroll_y_high = (data & 2) ? 256 : 0;
                 vram_step = data & (1 << 2) ? 32 : 1;
@@ -171,11 +171,9 @@ inline uint8_t nes_ppu_command(uint16_t address, uint8_t data, bool write) {
                 background_pattern_address = data & (1 << 4) ? 0x1000 : 0;
                 sprite_height = data & (1 << 5) ? 16 : 8;
                 nmi_output = data & (1 << 7);
-            }
-            break;
-        case 0x2001:
-            // PPUMASK
-            if (write) {
+                break;
+            case 0x2001:
+                // PPUMASK
                 grayscale = data & 1;
                 left8pixels_background = data & (1 << 1);
                 left8pixels_sprites = data & (1 << 2);
@@ -185,52 +183,38 @@ inline uint8_t nes_ppu_command(uint16_t address, uint8_t data, bool write) {
                 emphasize_r = data & (1 << 5);
                 emphasize_g = data & (1 << 6);
                 emphasize_b = data & (1 << 7);
-            }
-            break;
-        case 0x2002:
-            // PPUSTATUS
-            if (!write) {
-                vblank = 0;
-            }
-            write_latch = false;
-            break;
-        case 0x2003:
-            // OAMADDR
-            if (write) {
+                break;
+            case 0x2003:
+                // OAMADDR
                 oam_addr = data;
-            }
-            break;
-        case 0x2004:
-            // OAMDATA
-            if (write) {
+                break;
+            case 0x2004:
+                // OAMDATA
                 oam[oam_addr] = data;
                 oam_addr++;
-            }
-            break;
-        case 0x2005:
-            // PPUSCROLL
-            if (!write_latch) {
-                scroll_x = data;
-                write_latch = true;
-            } else {
-                scroll_y = data;
-                write_latch = false;
-            }
-            break;
-            break;
-        case 0x2006:
-            // PPUADDR
-            if (!write_latch) {
-                vram_addr = data << 8;
-                write_latch = true;
-            } else {
-                vram_addr |= data;
-                write_latch = false;
-            }
-            break;
-        case 0x2007:
-            // PPUDATA
-            if (write) {
+                break;
+            case 0x2005:
+                // PPUSCROLL
+                if (!write_latch) {
+                    scroll_x = data;
+                    write_latch = true;
+                } else {
+                    scroll_y = data;
+                    write_latch = false;
+                }
+                break;
+            case 0x2006:
+                // PPUADDR
+                if (!write_latch) {
+                    vram_addr = data << 8;
+                    write_latch = true;
+                } else {
+                    vram_addr |= data;
+                    write_latch = false;
+                }
+                break;
+            case 0x2007:
+                // PPUDATA
                 if (vram_addr < 0x2000) {
                     chr[vram_addr] = data;
                 } else if (vram_addr < 0x3000) {
@@ -244,8 +228,15 @@ inline uint8_t nes_ppu_command(uint16_t address, uint8_t data, bool write) {
                     palette[index] = data;
                 }
                 vram_addr += vram_step;
-            }
-            break;
+                break;
+        }
+    } else {
+        // for the moment we only support reading ppu_status
+        if (address == 0x2002) {
+            data = vblank;
+            vblank = 0;
+            write_latch = false;
+        }
     }
     return data;
 }

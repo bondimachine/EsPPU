@@ -371,54 +371,78 @@ void poll_bus(void* ignored) {
 
     uint32_t reg = REG_READ(GPIO_IN_REG);
 
-    if (reg & (1 << PIN_CLK)) {
-        #ifndef APU
-            bool cs = !(reg & (1 << PIN_CS));
-        #else
-            bool as = !(reg & (1 << PIN_AS));
-            bool cs = !(reg & (1 << PIN_CS)) | as;
-        #endif    
-        if (cs) {
+    #ifndef APU
+      bool cs = !(reg & (1 << PIN_CS));
+    #else
+      bool as = !(reg & (1 << PIN_AS));
+      bool cs = !(reg & (1 << PIN_CS)) | as;
+    #endif
 
-            uint16_t address = (reg >> PIN_A0 & 1)
-              | ((reg >> PIN_A1 & 1) << 1)
-              | ((reg >> PIN_A2 & 1) << 2);
+    if (cs) {
 
-            #ifdef APU
-                if (as) {
-                  // we could play with preprocessor conditionals here instead of assuming that A3..A5 are pins > 32, but meh.
-                  uint32_t reg1 = REG_READ(GPIO_IN1_REG);
-                  address |= ((reg1 >> (PIN_A3-32) & 1) << 3)
-                    | ((reg1 >> (PIN_A4-32) & 1) << 4)
-                    | ((reg1 >> (PIN_A5-32) & 1) << 5);
-                }
-            #endif
+      uint8_t data;
 
-            uint8_t data = 
-              (reg >> PIN_D0 & 1)
-              | ((reg >> PIN_D1 & 1) << 1)
-              | ((reg >> PIN_D2 & 1) << 2)
-              | ((reg >> PIN_D3 & 1) << 3)
-              | ((reg >> PIN_D4 & 1) << 4)
-              | ((reg >> PIN_D5 & 1) << 5)
-              | ((reg >> PIN_D6 & 1) << 6)
-              | ((reg >> PIN_D7 & 1) << 7);  
+      bool write = !(reg & (1 << PIN_RW));
 
-            bool write = !(reg & (1 << PIN_RW));
+      if (write) {
 
-            #ifndef APU
-              nes_ppu_command(0x2000 | address, data, write);
-            #else
-              if (as) {
-                nes_apu_command(0x4000 | address, data, write);
-              } else {
-                nes_ppu_command(0x2000 | address, data, write);
-              }
-            #endif    
+        while (!(reg & (1 << PIN_CLK))) {
+          reg = REG_READ(GPIO_IN_REG);
+        }
 
-            command_buffer_read_index++;
+        data = 
+          (reg >> PIN_D0 & 1)
+          | ((reg >> PIN_D1 & 1) << 1)
+          | ((reg >> PIN_D2 & 1) << 2)
+          | ((reg >> PIN_D3 & 1) << 3)
+          | ((reg >> PIN_D4 & 1) << 4)
+          | ((reg >> PIN_D5 & 1) << 5)
+          | ((reg >> PIN_D6 & 1) << 6)
+          | ((reg >> PIN_D7 & 1) << 7);
 
-        }        
+      }
+
+      uint16_t address = (reg >> PIN_A0 & 1)
+        | ((reg >> PIN_A1 & 1) << 1)
+        | ((reg >> PIN_A2 & 1) << 2);
+
+      #ifdef APU
+          if (as) {
+            // we could play with preprocessor conditionals here instead of assuming that A3..A5 are pins > 32, but meh.
+            uint32_t reg1 = REG_READ(GPIO_IN1_REG);
+            address |= ((reg1 >> (PIN_A3-32) & 1) << 3)
+              | ((reg1 >> (PIN_A4-32) & 1) << 4)
+              | ((reg1 >> (PIN_A5-32) & 1) << 5);
+          }
+      #endif
+
+
+      #ifndef APU
+        data = nes_ppu_command(0x2000 | address, data, write);
+      #else
+        if (as) {
+          data = nes_apu_command(0x4000 | address, data, write);
+        } else {
+          data = nes_ppu_command(0x2000 | address, data, write);
+        }
+      #endif
+
+      if (!write) {
+
+        REG_WRITE(GPIO_OUT_W1TS_REG, ((data >> 7) & 1) << PIN_D7);
+        REG_WRITE(GPIO_ENABLE_W1TS_REG, 1 << PIN_D7);
+
+        // do {
+        //   reg = REG_READ(GPIO_IN_REG);
+        // } while ((reg & (1 << PIN_CLK)));
+
+        REG_WRITE(GPIO_OUT_W1TC_REG, 1 << PIN_D7);
+        REG_WRITE(GPIO_ENABLE_W1TC_REG, 1 << PIN_D7);
+
+      }
+
+      stats[address + (write ? 8 : 0)]++;
+
     }
   }  
 }
