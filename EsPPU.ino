@@ -305,12 +305,18 @@ void loop() {
         }
       #endif
 
-      if (address < 2 && write) {
-        Serial.print(0x2000 | address, HEX);
-        Serial.print(" ");
-        Serial.println(data, HEX);
+      #ifdef APU
+      if (!as) {
+      #endif
+        if (address < 2 && write) {
+          Serial.print(0x2000 | address, HEX);
+          Serial.print(" ");
+          Serial.println(data, HEX);
+        }
+        stats[address + (write ? 8 : 0)]++;
+      #ifdef APU
       }
-      stats[address + (write ? 8 : 0)]++;
+      #endif
 
     }
 

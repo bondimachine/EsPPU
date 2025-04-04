@@ -41,6 +41,7 @@ uint8_t* oam_tile_s  = oam_fill + (18*4)+1;
 
 volatile uint8_t ppu_emphasis = 0b00011110;
 volatile uint8_t color = 0;
+uint8_t last_emphasis = ppu_emphasis;
 
 volatile bool frame = false;
 
@@ -115,10 +116,6 @@ void setup() {
     Serial.print("setup clocks: ");
     Serial.print(clockCount);
 
-    busDataWrite(0);
-    busAddr(0);
-    busSetRead();
-
 }
 
 volatile uint32_t frame_count = 0;
@@ -190,11 +187,11 @@ void loop() {
         ppuScroll(0, 0);
       
         // set emphasis
-        ppuMask(ppu_emphasis);
-
-        busDataWrite(0);
-        busAddr(0);
-        busSetRead();
+        if (last_emphasis != ppu_emphasis) {
+            // if to avoid excesive logging. real games don't update this every frame
+            ppuMask(ppu_emphasis);
+            last_emphasis = ppu_emphasis;
+        }
 
         if (sound_frame > -1) {
             render_sound_frame();

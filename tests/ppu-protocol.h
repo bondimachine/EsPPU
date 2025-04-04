@@ -81,7 +81,7 @@ void setupPins() {
 #define SET_PINS(x) REG_WRITE(GPIO_OUT_W1TS_REG, x)
 #define CLEAR_PINS(x) REG_WRITE(GPIO_OUT_W1TC_REG, x)
 
-inline void busAddr(uint16_t addr) {
+inline void busAddr(uint16_t addr, bool write) {
 
     uint32_t toSet = ((addr & 1) << PIN_A0) 
         | (((addr >> 1) & 1) << PIN_A1) 
@@ -89,21 +89,17 @@ inline void busAddr(uint16_t addr) {
         | (((addr >> 3) & 1) << PIN_A3_OUT)
         | (((addr >> 4) & 1) << PIN_A4_OUT)
         | ((!((addr >> 13) & 1)) << PIN_CS)
-        | ((!((addr >> 14) & 1)) << PIN_AS);
+        | ((!((addr >> 14) & 1)) << PIN_AS)
+        | ((!(write)) << PIN_RW);
 
     uint32_t toClear = ~toSet & (
-        (1 << PIN_A0 | 1 << PIN_A1 | 1 << PIN_A2 | 1 << PIN_A3_OUT | 1 << PIN_A4_OUT | 1 << PIN_CS | 1 << PIN_AS));
+        (1 << PIN_A0 | 1 << PIN_A1 | 1 << PIN_A2 | 1 << PIN_A3_OUT | 1 << PIN_A4_OUT | 1 << PIN_CS | 1 << PIN_AS | 1 << PIN_RW));
 
     SET_PINS(toSet);
     CLEAR_PINS(toClear);
 
     digitalWrite(PIN_A5_OUT, ((addr >> 5) & 1));
 
-}
-
-inline void busSetRead() {
-    SET_PINS(1 << PIN_RW); // RW is negated
-    REG_WRITE(GPIO_ENABLE_W1TC_REG, dataPinsMask);
 }
 
 inline uint8_t busDataRead() {
@@ -123,7 +119,6 @@ inline uint8_t busDataRead() {
 }
 
 inline void busDataWrite(uint8_t data) {
-    CLEAR_PINS(1 << PIN_RW);
     REG_WRITE(GPIO_ENABLE_W1TS_REG, dataPinsMask);
 
     uint32_t toSet = ((data & 1) << PIN_D0) 
@@ -150,17 +145,23 @@ inline void busClock() {
 
 
 inline uint8_t busRead(uint16_t addr) {
-    busAddr(addr);
-    busSetRead();
+    busAddr(addr, false);
     busClock();
-    return busDataRead();
+    // we got up to 10ns since clock down to read the bus
+    uint8_t result = busDataRead();
+    // we simulate fetching next instruction in the 6502 (it actually takes longer)
+    // there is no way to get two consecutive calls to PPU in real world so lets avoid stressing ours
+    busAddr(0, false);
+    busClock();
+    return result;
 }
 
 inline void busWrite(uint16_t addr, uint8_t data) {
-    busAddr(addr);
+    busAddr(addr, true);
     busDataWrite(data);
     busClock();
-    busAddr(0);
+    busAddr(0, false);
+    busClock();
 };
 
 inline void ppuCtrl(uint8_t bits) {
@@ -190,21 +191,15 @@ inline void oamDataWrite(uint8_t data) {
 
 inline void ppuScroll(uint8_t x, uint8_t y) {
     ppuStatus();
-    busAddr(0x2005);
-    busDataWrite(x);
-    busClock();
-    busDataWrite(y);
-    busClock();
+    busWrite(0x2005, x);
+    busWrite(0x2005, y);
 }
 
 
 inline void ppuAddr(uint16_t addr) {
     ppuStatus();
-    busAddr(0x2006);
-    busDataWrite((uint8_t)((addr >> 8) & 0xFF));
-    busClock();
-    busDataWrite((uint8_t)(addr & 0xFF));
-    busClock();
+    busWrite(0x2006, (uint8_t)((addr >> 8) & 0xFF));
+    busWrite(0x2006, (uint8_t)(addr & 0xFF));
 }
 
 inline void ppuDataWrite(uint8_t data) {
