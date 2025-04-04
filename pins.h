@@ -68,13 +68,6 @@ D33 - Audio out
 #define IN1_REMAP_SHIFT 4
 #define IN1_REMAP_MASK 0xFC0 // 6 1s shifted 6 positions
 
-
-#ifndef APU
-#define PPU_STATUS_READ (1 << PIN_RW) | (1 << PIN_A1) // a read in 0x2002
-#else
-#define PPU_STATUS_READ (1 << PIN_RW) | (1 << PIN_A1) | (1 << PIN_AS) // a read in 0x2002
-#endif
-
 // this has nothing to do here, but it is a single line to share with assembly
 #define COMMAND_BUFFER_SIZE 8192
 
