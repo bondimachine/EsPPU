@@ -21,6 +21,7 @@ uint8_t sprite_height = 8;
 uint8_t scroll_x = 0;
 uint16_t scroll_x_high = 0;
 uint8_t scroll_y = 0;
+uint8_t scroll_y_negative = 0;
 uint16_t scroll_y_high = 0;
 
 bool nmi_output = false;
@@ -50,8 +51,8 @@ inline void nes_ppu_scanline(uint8_t* buf, int y) {
 
     if(background_rendering) {
         // TODO: horizontal mirroring
-        uint16_t effective_y = (y + scroll_y + scroll_y_high) % 240;
-        uint8_t row = effective_y / 8;
+        uint16_t effective_y = ((y + scroll_y + scroll_y_high) % 240) + scroll_y_negative;
+        uint8_t row = (effective_y / 8) % 32;
         for (uint16_t x = 0; x < 256; x++) {
             uint16_t effective_x = (x + scroll_x + scroll_x_high) % 512;
             uint16_t table_x = 0;
@@ -199,7 +200,12 @@ inline uint8_t nes_ppu_command(uint16_t address, uint8_t data, bool write) {
                     scroll_x = data;
                     write_latch = true;
                 } else {
-                    scroll_y = data;
+                    if (data >= 240) {
+                        scroll_y = 0;
+                        scroll_y_negative = data;
+                    } else {
+                        scroll_y = data;
+                    }
                     write_latch = false;
                 }
                 break;
