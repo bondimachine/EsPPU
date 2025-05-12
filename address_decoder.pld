@@ -1,0 +1,36 @@
+Name     Name ;
+PartNo   00 ;
+Date     4/2/2025 ;
+Revision 01 ;
+Designer Engineer ;
+Company  None ;
+Assembly None ;
+Location  ;
+Device   g20v8a ;
+
+/* *************** INPUT PINS *********************/
+PIN  1  = CLK
+PIN  2  = A11
+PIN  3  = A12
+PIN  4  = A13
+PIN  5  = A14
+PIN  6  = A15
+PIN  7  = APPLE_MODE
+
+
+/* *************** OUTPUT PINS *********************/
+PIN  15 = RAM
+PIN  16 = PPU
+PIN  17 = IO
+PIN  18 = ROM
+PIN  19 = APU
+
+/* combinatorial logic */
+
+IO = !A11 # !A12 # !A13 # !A14 # A15;
+PPU = !A13 # A14 # A15 # APPLE_MODE;
+RAM = (A11 & A12 & A13 & A14) # (A13 & !A14 & !APPLE_MODE) # A15 # !CLK;
+ROM = !A15;
+APU = !(A14 & !A15 & !A13 & !A12 & !A11 & !APPLE_MODE);
+
+

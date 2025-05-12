@@ -39,11 +39,6 @@ int _pal_ = 0;
 #include "driver/gpio.h"
 #include "driver/i2s.h"
 
-#ifdef IR_PIN
-#include "ir_input.h"  // ir peripherals
-#endif
-
-
 //====================================================================================================
 //====================================================================================================
 //
@@ -99,7 +94,7 @@ static esp_err_t start_dma(int line_width,int samples_per_cc, int ch = 1)
     for (int i = 0; i < 2; i++) {
         int n = line_width*2*ch;
         if (n >= 4092) {
-            printf("DMA chunk too big:%s\n",n);
+            printf("DMA chunk too big:%d\n",n);
             return -1;
         }
         _dma_desc[i].buf = (uint8_t*)heap_caps_calloc(1, n, MALLOC_CAP_DMA);
@@ -183,12 +178,12 @@ void video_init_hw(int line_width, int samples_per_cc)
     // So it is back to PWM/PDM and a 1 bit DAC for us. Good news is that we can do stereo
     // if we want to and have lots of different ways of doing nice noise shaping etc.
 
-    // PWM audio out of pin 32 -> can be anything
+    // PWM audio out of pin 33 -> can be anything
     // lots of other ways, PDM by hand over I2S1, spi circular buffer etc
     // but if you would like stereo the led pwm seems like a fine choice
     // needs a simple rc filter (1k->1.2k resistor & 10nf->15nf cap work fine)
 
-    // 18 ----/\/\/\/----|------- a out
+    // 33 ----/\/\/\/----|------- a out
     //          1k       |
     //                  ---
     //                  --- 10nf
@@ -200,10 +195,6 @@ void video_init_hw(int line_width, int samples_per_cc)
      ledcAttachPin(PIN_AOUT, 0);
     // ledcAttach(PIN_AOUT, 124800,8);
     ledcWrite(0,0);
-#endif
-    //  IR input if used
-#ifdef IR_PIN
-    pinMode(IR_PIN,INPUT);
 #endif
 }
 
@@ -284,13 +275,6 @@ uint32_t xthal_get_ccount() {
 }
 
 void audio_sample(uint8_t s);
-
-void ir_sample();
-
-int get_hid_ir(uint8_t* buf)
-{
-    return 0;
-}
 
 #endif
 
@@ -675,10 +659,6 @@ void IRAM_ATTR video_isr(const volatile void* vbuf)
 
 #ifdef APU
     audio_sample(get_audio_sample());
-#endif
-
-#ifdef IR_PIN
-    ir_sample();
 #endif
 
     int i = _line_counter++;
