@@ -13,6 +13,12 @@
 #include "nes_apu.h"
 #endif
 
+#ifdef WIFI_SSID
+#include <WiFi.h>
+#include <ESPmDNS.h>
+#include "webserver.h"
+#endif
+
 volatile uint32_t command_buffer[COMMAND_BUFFER_SIZE];
 volatile uint32_t command_buffer_write_index = 0xFFFFFFFF; // we increment first, then write
 volatile uint32_t command_buffer_read_index = 0xFFFFFFFF;
@@ -238,12 +244,22 @@ void setup() {
 
     #endif
 
+    #ifdef WIFI_SSID
+    WiFi.mode(WIFI_STA);
+    WiFi.begin(WIFI_SSID, WIFI_PASS);
+    MDNS.begin("esppu");
+    webserver_setup();
+    #endif
+
 }
 
 void render_new_frame() {
 
   if (!(sprite_rendering || background_rendering)) {
     render_welcome();
+    #ifdef WIFI_SSID
+      webserver_loop();
+    #endif
     return;
   }
 
