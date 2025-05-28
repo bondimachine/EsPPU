@@ -7,8 +7,3 @@
 
 // If we want PAL to be PAL-N 🇦🇷
 #define PAL_N       1
-
-// If we want to enable Wifi config CHR rom uploading
-#define WIFI_SSID     "mywifi"
-#define WIFI_PASS     "password"
-
