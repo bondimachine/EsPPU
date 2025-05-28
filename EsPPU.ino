@@ -119,36 +119,40 @@ void render_welcome() {
     }
 }
 
-void load_config() {
+String chr_file_name = "/test.chr";
 
-  String chr_file_name = "/test.chr";
+void load_config() {
 
   File cfg_file = LittleFS.open("/config.ini");
 
   if (cfg_file) {
     while (cfg_file.available()) {
       String line = cfg_file.readStringUntil('\n');
-      int eq = line.indexOf('=');
-      if(eq != -1) {
-        String key = line.substring(0, eq);
-        String value = line.substring(eq + 1);
-        if (key == "chr") {
-          chr_file_name = value;
-          continue;
-        }
-        if (key == "mirroring") {
-          value.toLowerCase();
-          horizontal_mirroring = (value[0] == 'h');
-          if (horizontal_mirroring) {
-            Serial.println("horizontal mirroring");
-          }
-          continue;
-        }
-      }
-      Serial.print("ignoring unknown config ");
-      Serial.println(line);
+      parse_config_line(line);
     }
+  } else {
+    Serial.println("failed to load config");
   }
+
+  load_chr();
+}
+
+void save_config() {
+
+  File cfg_file = LittleFS.open("/config.ini", "w");
+
+  if (cfg_file) {
+    cfg_file.println("chr=" + chr_file_name);
+    if (horizontal_mirroring) {
+      cfg_file.println("mirroring=h");
+    }
+    cfg_file.close();
+  } else {
+    Serial.println("failed to save config");
+  }
+}
+
+void load_chr() {
 
   File chr_file = LittleFS.open(chr_file_name);
 
@@ -164,6 +168,32 @@ void load_config() {
     chr[x++] = chr_file.read();
   }
 
+  chr_file.close();
+
+}
+
+bool parse_config_line(String& line) {
+  int eq = line.indexOf('=');
+  if(eq != -1) {
+    String key = line.substring(0, eq);
+    String value = line.substring(eq + 1);
+    if (key == "chr") {
+      chr_file_name = value;
+    } else if (key == "mirroring") {
+      value.toLowerCase();
+      horizontal_mirroring = (value[0] == 'h');
+      if (horizontal_mirroring) {
+        Serial.println("horizontal mirroring");
+      } else {
+        Serial.println("virtical mirroring");
+      }
+    } else {
+      Serial.print("ignoring unknown config ");
+      Serial.println(line);
+      return false;
+    }
+    return true;
+  }  
 }
 
 void setup() {
@@ -327,7 +357,6 @@ void loop() {
       #endif
 
     }
-
 
   }  
 
