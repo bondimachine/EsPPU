@@ -22,11 +22,11 @@ D32   --   /INT <+ |19  22| <- /RST    -- D12
 GND   --    GND -- |20  21| -> VOUT    -- D25
                    '------'
 
-D39 - A3
-D34 - A4 
-D35 - A5
-D33 - Audio out
-/AS - D26
+D39(VN) - A3
+D34     - A4 
+D35     - A5
+D33     - Audio out
+D26     - /AS
 
 */
 

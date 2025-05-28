@@ -42,11 +42,11 @@ As such, we also added support for emulating the APU.
 You'll need to build an external chip select signal /AS for the APU when address is between 4000-4017; excluding 4016. 4017 actually needs to combine the signals from the joystick support circuits. 
 
 ```
-D39 - A3
-D34 - A4 
-D35 - A5
-D33 - Audio out
-/AS - D26
+D39(VN) - A3
+D34     - A4 
+D35     - A5
+D33     - Audio out
+D26     - /AS
 ```
 
 Audio output should pass thru a simple rc filter
