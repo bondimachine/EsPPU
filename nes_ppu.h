@@ -35,6 +35,7 @@ bool sprite_rendering = false;
 bool emphasize_r = false;
 bool emphasize_g = false;
 bool emphasize_b = false;
+bool horizontal_mirroring = false;
 
 struct __attribute__((packed)) oam_entry {
   uint8_t y;
@@ -50,21 +51,30 @@ inline uint8_t pixel_palette_idx(uint8_t right_plane_line, uint8_t left_plane_li
 inline void nes_ppu_scanline(uint8_t* buf, int y) {
 
     if(background_rendering) {
-        // TODO: horizontal mirroring
-        uint16_t effective_y = ((y + scroll_y + scroll_y_high) % 240) + scroll_y_negative;
+        uint16_t table_y = 0;
+        uint16_t effective_y = ((y + scroll_y + scroll_y_high) % 480);
+        if (effective_y >= 240) {
+            effective_y -= 240;
+            if(horizontal_mirroring) {
+                table_y = 0x400;
+            }
+        }
+        effective_y +=  scroll_y_negative;
         uint8_t row = (effective_y / 8) % 32;
         for (uint16_t x = 0; x < 256; x++) {
             uint16_t effective_x = (x + scroll_x + scroll_x_high) % 512;
             uint16_t table_x = 0;
             if (effective_x >= 256) {
                 effective_x -= 256;
-                table_x = 0x400;
+                if(!horizontal_mirroring) {
+                    table_x = 0x400;
+                }
             };
             uint8_t col = effective_x / 8;
 
-            uint8_t tile_index = vram[table_x + (row * 32) + col];
+            uint8_t tile_index = vram[table_x + table_y + (row * 32) + col];
 
-            uint8_t attribute = vram[table_x + 0x03C0 + ((row / 4) * 8) + col / 4];
+            uint8_t attribute = vram[table_x + table_y + 0x03C0 + ((row / 4) * 8) + col / 4];
 
             uint8_t* tile = chr + background_pattern_address + tile_index * 16;
             uint8_t line = (effective_y % 8);
@@ -224,11 +234,18 @@ inline uint8_t nes_ppu_command(uint16_t address, uint8_t data, bool write) {
                 if (vram_addr < 0x2000) {
                     chr[vram_addr] = data;
                 } else if (vram_addr < 0x3000) {
-                    // TODO horizonal mirroring
-                    uint16_t index = (vram_addr - 0x2000) % 2048;
+                    uint16_t index = vram_addr - 0x2000;
+                    if (horizontal_mirroring && (index >= 0x400)) {
+                      index -= 0x400; // this causes 0x2600 for example to write in 0x2200 (repeats A); but also to 0x3000 to write in 0x2600 i.e. B
+                      if(index >= 0x800) {
+                        index -= 0x400;
+                      }
+                    } else if (index >= 0x800) {
+                      index -= 0x800;
+                    }
                     vram[index] = data;
                 } else if (vram_addr < 0x3F00) {
-                    // weird. this shouldn't be unused
+                    // weird. this shouldn't be used
                 } else {
                     uint16_t index = (vram_addr - 0x3F00) % 32;
                     palette[index] = data;

@@ -9,11 +9,17 @@ oamtest.ppm: oamtest
 nametabletest: nametabletest.cpp ../nes_ppu.h
 	g++ nametabletest.cpp -o nametabletest
 
-nametabletest001.ppm: nametabletest
+nametabletest0001.ppm: nametabletest
 	./nametabletest
 
-nametabletest.mp4: nametabletest001.ppm
-	ffmpeg -r 10 -f image2 -s 256x240 -i nametabletest%03d.ppm -vcodec libx264 -crf 1  -pix_fmt yuv420p nametabletest.mp4
+nametabletest.mp4: nametabletest0001.ppm
+	ffmpeg -r 30 -f image2 -s 256x240 -i nametabletest%04d.ppm -vcodec libx264 -crf 1  -pix_fmt yuv420p nametabletest.mp4
+
+nametabletesh0001.ppm: nametabletest
+	./nametabletest h
+
+nametabletesh.mp4: nametabletesh0001.ppm
+	ffmpeg -r 30 -f image2 -s 256x240 -i nametabletesh%04d.ppm -vcodec libx264 -crf 1  -pix_fmt yuv420p nametabletesh.mp4
 
 aputest: aputest.cpp ../nes_apu.h
 	g++ aputest.cpp -o aputest
@@ -21,6 +27,7 @@ aputest: aputest.cpp ../nes_apu.h
 clean:
 	-rm -f oamtest
 	-rm -f nametabletest
+	-rm -f nametabletesth
 	-rm -f aputest
 	-rm -f *.ppm
 	-rm -f *.mp4

@@ -142,6 +142,14 @@ void load_config() {
           chr_file_name = value;
           continue;
         }
+        if (key == "mirroring") {
+          value.toLowerCase();
+          horizontal_mirroring = (value[0] == 'h');
+          if (horizontal_mirroring) {
+            Serial.println("horizontal mirroring");
+          }
+          continue;
+        }
       }
       Serial.print("ignoring unknown config ");
       Serial.println(line);

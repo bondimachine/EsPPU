@@ -153,6 +153,10 @@ void render(int sx, int sy);
 
 int main(int argc, char** argv) {
 
+	if (argc > 1 && argv[1][0] == 'h' ) {
+		horizontal_mirroring = true;
+	}
+
   	ppuAddr(0x2000);
     for(uint16_t x = 0; x < 960; x++) {
        ppuDataWrite(nametable1[x]);
@@ -163,14 +167,14 @@ int main(int argc, char** argv) {
        ppuDataWrite(attribute[x]);
     }
 
-  	ppuAddr(0x2400);
+  	ppuAddr(0x2400 + horizontal_mirroring * 0x400);
     for(uint16_t y = 0; y < 30; y++) {
 		for(uint16_t x = 0; x < 32; x++) {
 			ppuDataWrite(x);
 		}
 	}
 
-  	ppuAddr(0x27C0);
+  	ppuAddr(0x27C0 + horizontal_mirroring * 0x400);
     for(uint8_t y = 0; y < 8; y++) {
 	    for(uint8_t x = 0; x < 8; x++) {
     	   ppuDataWrite(x % 4);
@@ -223,45 +227,66 @@ int main(int argc, char** argv) {
     // }
     // fclose(f);
 
+	// first vertical scroll
+
+	int coarse_step = 1;
+
 	// test fine scrolling, 1 pixel to see if it correctly subdivides tiles
 	for(int sy = 0; sy < 8; sy++) {
 		render(0, sy);
 	}
 	// one tile at a time, full screen
-	for(int sy = 8; sy < 240; sy+=8) {
+	for(int sy = 8; sy < 256; sy+= coarse_step) {
 		render(0, sy);
 	}
+
+	// test 8th bit Y
+    ppuCtrl(0b00010010);
+
+	for(int sy = 0; sy < 224; sy+=coarse_step) {
+		render(0, sy);
+	}
+
+    ppuCtrl(0b00010000);
+
+	// then horizontal scroll
 
 	for(int sx = 0; sx < 8; sx++) {
 		render(sx, 0);
 	}
-	for(int sx = 8; sx < 255; sx+=8) {
+	for(int sx = 8; sx < 256; sx+=coarse_step) {
 		render(sx, 0);
 	}
 
-	// test 8th bit
+	// test 8th bit X
     ppuCtrl(0b00010001);
 
-	for(int sx = 0; sx < 255; sx+=8) {
+	for(int sx = 0; sx < 256; sx+=coarse_step) {
 		render(sx, 0);
 	}
 
     ppuCtrl(0b00010000);
 
 	// test combined 
-	for(int s = 0; s < 128; s+=8) {
+	int s = 0; 
+	for(; s < 256; s+=coarse_step) {
 		render(s, s);
 	}
 
+    ppuCtrl(0b00010011);
 
-    return 0;
+	for(; s < 512; s+=coarse_step) {
+		render(s - 256, s - 256);
+	}
+
+	return 0;
 }
 
 int frame_count = 0;
 void render(int sx, int sy) {
 	ppuScroll(sx % 256, sy % 256);
 	char filename[30];
-	snprintf(filename, 30, "nametabletest%03d.ppm", frame_count++);
+	snprintf(filename, 30, "nametabletes%c%04d.ppm", horizontal_mirroring ? 'h' : 't', frame_count++);
 	FILE *f = fopen(filename, "w+");
 	fprintf(f, "P3\n256 240 255\n");
 	uint8_t line_buffer[256];
