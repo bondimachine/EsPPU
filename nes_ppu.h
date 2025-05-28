@@ -176,7 +176,7 @@ inline uint8_t nes_ppu_command(uint16_t address, uint8_t data, bool write) {
             case 0x2000:
                 // PPUCTRL
                 scroll_x_high = (data & 1) ? 256 : 0;
-                scroll_y_high = (data & 2) ? 256 : 0;
+                scroll_y_high = (data & 2) ? 240 : 0;
                 vram_step = data & (1 << 2) ? 32 : 1;
                 sprite_8x8_pattern_address = data & (1 << 3) ? 0x1000 : 0;
                 background_pattern_address = data & (1 << 4) ? 0x1000 : 0;

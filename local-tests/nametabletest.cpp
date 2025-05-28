@@ -236,14 +236,14 @@ int main(int argc, char** argv) {
 		render(0, sy);
 	}
 	// one tile at a time, full screen
-	for(int sy = 8; sy < 256; sy+= coarse_step) {
+	for(int sy = 8; sy < 240; sy+= coarse_step) {
 		render(0, sy);
 	}
 
 	// test 8th bit Y
     ppuCtrl(0b00010010);
 
-	for(int sy = 0; sy < 224; sy+=coarse_step) {
+	for(int sy = 0; sy < 240; sy+=coarse_step) {
 		render(0, sy);
 	}
 
@@ -269,15 +269,30 @@ int main(int argc, char** argv) {
 
 	// test combined 
 	int s = 0; 
-	for(; s < 256; s+=coarse_step) {
+	for(; s < 240; s+=coarse_step) {
 		render(s, s);
+	}
+
+    ppuCtrl(0b00010010);
+
+	for(; s < 256; s+=coarse_step) {
+		render(s, s - 240);
 	}
 
     ppuCtrl(0b00010011);
 
-	for(; s < 512; s+=coarse_step) {
-		render(s - 256, s - 256);
+	for(; s < 480; s+=coarse_step) {
+		render(s - 256, s - 240);
 	}
+
+    ppuCtrl(0b00010001);
+
+	for(; s < 512; s+=coarse_step) {
+		render(s - 256, 0);
+	}
+
+    ppuCtrl(0b00010000);
+	render(0, 0);
 
 	return 0;
 }

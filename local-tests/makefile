@@ -13,13 +13,13 @@ nametabletest0001.ppm: nametabletest
 	./nametabletest
 
 nametabletest.mp4: nametabletest0001.ppm
-	ffmpeg -r 30 -f image2 -s 256x240 -i nametabletest%04d.ppm -vcodec libx264 -crf 1  -pix_fmt yuv420p nametabletest.mp4
+	ffmpeg -r 60 -f image2 -s 256x240 -i nametabletest%04d.ppm -vcodec libx264 -crf 1  -pix_fmt yuv420p nametabletest.mp4
 
 nametabletesh0001.ppm: nametabletest
 	./nametabletest h
 
 nametabletesh.mp4: nametabletesh0001.ppm
-	ffmpeg -r 30 -f image2 -s 256x240 -i nametabletesh%04d.ppm -vcodec libx264 -crf 1  -pix_fmt yuv420p nametabletesh.mp4
+	ffmpeg -r 60 -f image2 -s 256x240 -i nametabletesh%04d.ppm -vcodec libx264 -crf 1  -pix_fmt yuv420p nametabletesh.mp4
 
 aputest: aputest.cpp ../nes_apu.h
 	g++ aputest.cpp -o aputest
