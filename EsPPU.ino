@@ -342,7 +342,7 @@ void render(void* ignored) {
   for(;;) {
     if (new_frame && !new_frame_ready) {
 
-      vblank = 1 << PIN_D7;
+      ppu_status_read = 1 << PIN_D7;
       new_frame = false;
 
       render_new_frame();

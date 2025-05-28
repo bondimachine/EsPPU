@@ -25,7 +25,7 @@ uint8_t scroll_y_negative = 0;
 uint16_t scroll_y_high = 0;
 
 bool nmi_output = false;
-volatile uint32_t vblank = 0;
+volatile uint32_t ppu_status_read = 0;
 
 bool grayscale = false;
 bool left8pixels_background = false;
@@ -160,6 +160,9 @@ inline void nes_ppu_scanline(uint8_t* buf, int y) {
           uint8_t palette_idx = pixel_palette_idx(right_plane_line, left_plane_line, x);
           if (palette_idx) {
             // TODO: background priority
+            if (sprite == 0 && background_rendering && (buf[screen_x] == palette[0])) {
+              ppu_status_read |= (1 << PIN_D6);
+            }
             uint8_t pixel_color = sprite_palette[palette_idx];
             buf[screen_x] = pixel_color;
           }
@@ -256,8 +259,8 @@ inline uint8_t nes_ppu_command(uint16_t address, uint8_t data, bool write) {
     } else {
         // for the moment we only support reading ppu_status
         if (address == 0x2002) {
-            data = vblank;
-            vblank = 0;
+            data = ppu_status_read;
+            ppu_status_read &= ~(1 << PIN_D7);
             write_latch = false;
         }
     }

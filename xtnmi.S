@@ -33,8 +33,8 @@ xt_nmi:
     // WTF? we got here but no /CS?
     bbsi    a2, PIN_CS, exit
 
-    // load vblank (should be 1 << PIN_D7 or 0)
-    movi    a1, vblank
+    // load ppu_status_read
+    movi    a1, ppu_status_read
     l32i    a1, a1, 0
     movi    a0, GPIO_OUT_W1TS_REG
     s32i    a1, a0, 0
