@@ -252,6 +252,10 @@ inline uint8_t nes_ppu_command(uint16_t address, uint8_t data, bool write) {
                 } else {
                     uint16_t index = (vram_addr - 0x3F00) % 32;
                     palette[index] = data;
+                    // this is an optimization because we don't care about the other transparents
+                    if (index == 16) {
+                        palette[0] = data;
+                    }
                 }
                 vram_addr += vram_step;
                 break;
