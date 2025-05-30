@@ -39,8 +39,8 @@ xt_nmi:
     movi    a0, GPIO_OUT_W1TS_REG
     s32i    a1, a0, 0
 
-    // set D7 pin to output
-    movi    a1, 1 << PIN_D7
+    // set D6 (sprite0) and D7 (vblank) pins to output
+    movi    a1, 1 << PIN_D6 | 1 << PIN_D7
     movi    a0, GPIO_ENABLE_W1TS_REG
     s32i    a1, a0, 0
 
