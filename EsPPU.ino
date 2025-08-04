@@ -61,8 +61,8 @@ static const uint8_t dataPins[] = {PIN_D0, PIN_D1, PIN_D2, PIN_D3, PIN_D4, PIN_D
 static const uint8_t addressPins[] = {PIN_A0, PIN_A1, PIN_A2};
 static const uint8_t addressPinsCount = 3;
 #else
-static const uint8_t addressPins[] = {PIN_A0, PIN_A1, PIN_A2, PIN_A3, PIN_A4, PIN_A5};
-static const uint8_t addressPinsCount = 6;
+static const uint8_t addressPins[] = {PIN_A0, PIN_A1, PIN_A2, PIN_A3, PIN_A4};
+static const uint8_t addressPinsCount = 5;
 #endif
 
 extern void* ld_include_xt_nmi;
@@ -79,6 +79,7 @@ uint32_t stats[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
 #ifdef APU
 uint16_t apu_commands = 0;
+uint32_t apu_stats[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
 void IRAM_ATTR apu_clock_timer() {
   apu_clock(25);
@@ -214,11 +215,13 @@ void setup() {
     }
 
     // for debugging 
-    // pinMode(12, OUTPUT);
+    // pinMode(PIN_DEBUG, OUTPUT);
 
     pinMode(PIN_CS, INPUT);
     #ifdef APU
         pinMode(PIN_AS, INPUT);
+        pinMode(PIN_AOUT, OUTPUT);
+        digitalWrite(PIN_AOUT, LOW);
     #endif
 
     pinMode(PIN_CLK, INPUT);
@@ -314,9 +317,8 @@ void loop() {
       #ifdef APU
           bool as = !(reg & (1 << PIN_AS));
           if (as) {
-              address |= ((reg >> (PIN_A3-32+IN1_REMAP_SHIFT) & 1) << 3)
-                | ((reg >> (PIN_A4-32+IN1_REMAP_SHIFT) & 1) << 4)
-                | ((reg >> (PIN_A5-32+IN1_REMAP_SHIFT) & 1) << 5);
+              address |= ((reg >> (PIN_A3_REMAPPED) & 1) << 3)
+                | ((reg >> (PIN_A4_REMAPPED) & 1) << 4);
           }
       #endif
 
@@ -346,13 +348,17 @@ void loop() {
       #ifdef APU
       if (!as) {
       #endif
-        if (address < 2 && write) {
-          Serial.print(0x2000 | address, HEX);
-          Serial.print(" ");
-          Serial.println(data, HEX);
-        }
         stats[address + (write ? 8 : 0)]++;
       #ifdef APU
+      } else {
+        // if(write) {
+        //   Serial.print("apu(0x");
+        //   Serial.print(0x4000 | address, HEX);
+        //   Serial.print(", 0x");
+        //   Serial.print(data, HEX);
+        //   Serial.println(");");
+        // }
+        apu_stats[address]++;
       }
       #endif
 
@@ -386,6 +392,7 @@ void render(void* ignored) {
 #ifdef APU
         Serial.print(" apu ");
         Serial.print(apu_commands);
+        apu_commands = 0;
 #endif
         Serial.print(" fps ");
         Serial.println(frame_count * isr_frames / 60);
@@ -399,7 +406,17 @@ void render(void* ignored) {
         }
         Serial.println();
 
+      #ifdef APU
+        for (int i = 0; i<22; i++) {
+          Serial.print(apu_stats[i]);
+          Serial.print(i == 11 ? "\n" : "\t");
+          apu_stats[i] = 0;
+        }
+        Serial.println();
+      #endif
+
       }
+
     }
   }
 }
@@ -415,7 +432,7 @@ void poll_bus(void* ignored) {
     uint32_t reg = REG_READ(GPIO_IN_REG);
 
     #ifndef APU
-      bool cs = !(reg & (1 << PIN_CS));
+    bool cs = !(reg & (1 << PIN_CS));
     #else
       bool as = !(reg & (1 << PIN_AS));
       bool cs = !(reg & (1 << PIN_CS)) | as;
@@ -453,9 +470,8 @@ void poll_bus(void* ignored) {
           if (as) {
             // we could play with preprocessor conditionals here instead of assuming that A3..A5 are pins > 32, but meh.
             uint32_t reg1 = REG_READ(GPIO_IN1_REG);
-            address |= ((reg1 >> (PIN_A3-32) & 1) << 3)
-              | ((reg1 >> (PIN_A4-32) & 1) << 4)
-              | ((reg1 >> (PIN_A5-32) & 1) << 5);
+            address |= ((reg1 >> (PIN_A3_REMAPPED) & 1) << 3)
+              | ((reg1 >> (PIN_A4_REMAPPED) & 1) << 4)
           }
       #endif
 

@@ -25,13 +25,25 @@ xt_nmi:
     movi    a0, GPIO_IN_REG
     l32i    a2, a0, 0
 
+
+#ifndef APU
+    bbsi    a2, PIN_CS, exit
+#else
+    bbci    a2, PIN_CS, no_need_for_high
+
+    // /AS is set, read IN1
+    movi    a1, GPIO_IN1_REG
+    l32i    a1, a1, 0
+
+    bbsi    a2, PIN_AS, exit
+
+no_need_for_high:
+#endif
+
     // if it is a write, wait for data to be stable
     bbci    a2, PIN_RW, wait_data_stable
 
     // for the moment we consider every read to be PPU STATUS read
-
-    // WTF? we got here but no /CS?
-    bbsi    a2, PIN_CS, exit
 
     // load ppu_status_read
     movi    a1, ppu_status_read
@@ -65,22 +77,10 @@ wait_clock_up_done:
 
 process_command:
 
-#ifndef APU
-    // WTF? we got here but no /CS?
-    bbsi    a2, PIN_CS, exit
-#else
-    // check /CS. if set, avoid checking for /AS
+#ifdef APU
     bbci    a2, PIN_CS, write_command_to_buffer
 
-    // /CS not set, check for /AS. if not set, leave.
-    bbsi    a2, PIN_AS, exit
-
-    // /AS is set, read IN1
-    movi    a0, GPIO_IN1_REG
-    l32i    a1, a0, 0
-
-    // remap bits
-    slli    a1, a1, IN1_REMAP_SHIFT
+    // remap high bits
     movi    a0, IN1_REMAP_MASK
     and     a1, a1, a0
     movi    a0, ~IN1_REMAP_MASK
@@ -90,7 +90,7 @@ process_command:
 #endif
 
     // for debugging
-    // movi    a1, 1 << 12
+    // movi    a1, 1 << PIN_DEBUG
     // movi    a0, GPIO_OUT_W1TS_REG
     // s32i    a1, a0, 0
 
@@ -117,8 +117,8 @@ write_command_to_buffer:
     // wait until clock is down
     movi    a0, GPIO_IN_REG
 wait_clock_down:
-    l32i    a2, a0, 0
-    bbsi    a2, PIN_CLK, wait_clock_down
+    l32i    a1, a0, 0
+    bbsi    a1, PIN_CLK, wait_clock_down
 
     // set all data pins to 0 (so we only need to set the 1s in the next read, if any)
     movi    a1, 1 << PIN_D0 | 1 << PIN_D1 | 1 << PIN_D2 | 1 << PIN_D3 | 1 << PIN_D4 | 1 << PIN_D5 | 1 << PIN_D6 | 1 << PIN_D7
@@ -132,7 +132,7 @@ wait_clock_down:
 exit:
     /* Clear interupt on CS/AS pins */
     movi    a0, GPIO_STATUS_W1TC_REG
-#ifdef APU    
+#ifdef APU
     movi    a1, (1 << PIN_CS) | (1 << PIN_AS)
 #else
     movi    a1, (1 << PIN_CS)
@@ -142,7 +142,7 @@ exit:
     // until here we spent ~250ns
 
     // for debugging
-    // movi    a1, 1 << 12
+    // movi    a1, 1 << PIN_DEBUG
     // movi    a0, GPIO_OUT_W1TC_REG
     // s32i    a1, a0, 0
 

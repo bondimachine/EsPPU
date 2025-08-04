@@ -18,13 +18,12 @@ N/C   --   EXT1 <> |15  26| -> PPU A12 -- N/C
 N/C   --   EXT2 <> |16  25| -> PPU A13 -- N/C
 N/C   --   EXT3 <> |17  24| -> /RD     -- N/C
 D27   --    CLK -> |18  23| -> /WR     -- N/C
-D32   --   /INT <+ |19  22| <- /RST    -- D12
+D32   --   /INT <+ |19  22| <- /RST    -- EN
 GND   --    GND -- |20  21| -> VOUT    -- D25
                    '------'
 
 D39(VN) - A3
-D34     - A4 
-D35     - A5
+D35     - A4 
 D33     - Audio out
 D26     - /AS
 
@@ -50,23 +49,22 @@ D26     - /AS
 
 #define PIN_CLK 27
 #define PIN_INT 32
-#define PIN_RST 12
+#define PIN_DEBUG 12
 #define PIN_VOUT 25
 
 #define PIN_A3 39 // VN 7 reg1
-#define PIN_A4 34 // 2 reg1
-#define PIN_A5 35 // 3 reg1
+#define PIN_A4 35 // 3 reg1
 #define PIN_AOUT 33
 #define PIN_AS 26
 
+// matches the bit number in IN1
+#define PIN_A3_REMAPPED 7 
+#define PIN_A4_REMAPPED 3
+
 #define PIN_A3_OUT 25
 #define PIN_A4_OUT 12
-#define PIN_A5_OUT 33
 
-// extended address pin values are remaped in the buffer value to bit range 6-11 as those pins values are unused
-// we add "4" because the min pin is 34 (34 - 32 = 2 => + 4 = 6)
-#define IN1_REMAP_SHIFT 4
-#define IN1_REMAP_MASK 0xFC0 // 6 1s shifted 6 positions
+#define IN1_REMAP_MASK 0b10001000
 
 // this has nothing to do here, but it is a single line to share with assembly
 #define COMMAND_BUFFER_SIZE 8192

@@ -26,7 +26,7 @@ N/C   --   EXT1 <> |15  26| -> PPU A12 -- N/C
 N/C   --   EXT2 <> |16  25| -> PPU A13 -- N/C
 N/C   --   EXT3 <> |17  24| -> /RD     -- N/C
 D27   --    CLK -> |18  23| -> /WR     -- N/C
-D32   --   /INT <+ |19  22| <- /RST    -- D12
+D32   --   /INT <+ |19  22| <- /RST    -- EN
 GND   --    GND -- |20  21| -> VOUT    -- D25
                    '------'
 ```
@@ -39,12 +39,11 @@ The origial goal of this project was to be able to run NES games in using a "mod
 
 As such, we also added support for emulating the APU. 
 
-You'll need to build an external chip select signal /AS for the APU when address is between 4000-4017; excluding 4016. 4017 actually needs to combine the signals from the joystick support circuits. 
+You'll need to build an external chip select signal /AS for the APU when address is between 4000-4017; excluding 4014 and 4016. 4017 actually needs to combine the signals from the joystick support circuits.
 
 ```
 D39(VN) - A3
-D34     - A4 
-D35     - A5
+D35     - A4 
 D33     - Audio out
 D26     - /AS
 ```
