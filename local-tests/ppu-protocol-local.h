@@ -1,3 +1,6 @@
+#define PIN_D7 7
+#define PIN_D6 6
+
 #include "../nes_ppu.h"
 
 inline uint8_t busRead(uint16_t addr) {
