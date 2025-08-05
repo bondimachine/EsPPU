@@ -64,8 +64,6 @@ void setupPins() {
     digitalWrite(PIN_A3_OUT, LOW);
     pinMode(PIN_A4_OUT, OUTPUT);
     digitalWrite(PIN_A4_OUT, LOW);
-    pinMode(PIN_A5_OUT, OUTPUT);
-    digitalWrite(PIN_A5_OUT, LOW);
     pinMode(PIN_CS, OUTPUT);
     digitalWrite(PIN_CS, HIGH);
     pinMode(PIN_AS, OUTPUT);
@@ -97,8 +95,6 @@ inline void busAddr(uint16_t addr, bool write) {
 
     SET_PINS(toSet);
     CLEAR_PINS(toClear);
-
-    digitalWrite(PIN_A5_OUT, ((addr >> 5) & 1));
 
 }
 
