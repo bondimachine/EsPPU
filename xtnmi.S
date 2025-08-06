@@ -42,6 +42,12 @@ no_need_for_high:
 
     // if it is a write, wait for data to be stable
     bbci    a2, PIN_RW, wait_data_stable
+#ifdef APU
+    // if it is an APU read, avoid overwriting the high bits with the next code
+    // also in the future we could support an actual read of 4015 status bits
+    // but sadly we are seeing some reads that should be writes (WTF?!)
+    bbci    a2, PIN_AS, wait_data_stable
+#endif
 
     // for the moment we consider every read to be PPU STATUS read
 
