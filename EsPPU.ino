@@ -86,7 +86,7 @@ void IRAM_ATTR apu_clock_timer() {
 }
 #endif 
 
-void on_frame() {    
+void IRAM_ATTR on_frame() {    
     // this is on ISR so we don't do much work here
     if (new_frame_ready) {
       new_frame_ready = false;
@@ -105,7 +105,7 @@ void on_frame() {
 }
 
 #ifdef APU
-uint8_t get_audio_sample() {
+uint8_t IRAM_ATTR get_audio_sample() {
   return apu_sample();
 }
 #endif
@@ -114,6 +114,10 @@ String msg = "Welcome to EsPPU";
 void render_welcome() {
     int len = msg.length();
     int center = (42 - len) / 2;
+    for(int clear = 0; clear < 42; clear++) {
+      draw_char(_lines, ' ', clear, 15, 0x00, 0x00);
+      draw_char(back_buffer_lines, ' ', clear, 15, 0x00, 0x00);
+    }
     for(int x = 0; x < len; x++) {
       draw_char(_lines, msg[x], x+center, 15, 0x30, 0x0E);
       draw_char(back_buffer_lines, msg[x], x+center, 15, 0x30, 0x0E);
@@ -143,9 +147,10 @@ void save_config() {
   File cfg_file = LittleFS.open("/config.ini", "w");
 
   if (cfg_file) {
-    cfg_file.println("chr=" + chr_file_name);
+    // we do manually \n cause println adds \r too
+    cfg_file.print("chr=" + chr_file_name + "\n");
     if (horizontal_mirroring) {
-      cfg_file.println("mirroring=h");
+      cfg_file.print("mirroring=h\n");
     }
     cfg_file.close();
   } else {
@@ -161,6 +166,7 @@ void load_chr() {
     msg = "can't open " + chr_file_name;
     Serial.println(msg);
   } else {
+    msg = "EsPPU using " + chr_file_name;
     Serial.println("loading " + chr_file_name);
   }
 
@@ -362,13 +368,18 @@ void loop() {
       }
       #endif
 
-    }
-
-  }  
+    } else if (Serial.available()) {
+      String input = Serial.readStringUntil('\n');
+      if (parse_config_line(input)) {
+        load_chr();
+        save_config();
+      }
+    }  
+  } 
 
 }
 
-void render(void* ignored) {
+IRAM_ATTR void render(void* ignored) {
 
   video_init(nes_4_phase, 64, ntsc);
 
@@ -376,7 +387,6 @@ void render(void* ignored) {
 
   for(;;) {
     if (new_frame && !new_frame_ready) {
-
       ppu_status_read = 1 << PIN_D7;
       new_frame = false;
 

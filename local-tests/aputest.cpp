@@ -1,3 +1,4 @@
+#define IRAM_ATTR 
 #include "../nes_apu.h"
 #include <stdio.h>
 

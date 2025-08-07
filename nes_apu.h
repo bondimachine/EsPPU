@@ -173,7 +173,7 @@ inline void triangle_linear_counter_step() {
 }
 
 
-void apu_clock(uint8_t clocks) {
+IRAM_ATTR void apu_clock(uint8_t clocks) {
 
     // traingle is twice the clock
     uint8_t triangle_steps = timer_step(&triangle.channel, clocks*2);
@@ -239,7 +239,7 @@ inline uint8_t pulse_sequence_value(struct pulse_channel* pulse) {
     return pulse_duties[pulse->duty][pulse->sequence];
 }
 
-uint8_t apu_sample() {
+IRAM_ATTR uint8_t apu_sample() {
     uint8_t tnd_out = 0;
 
     /*
