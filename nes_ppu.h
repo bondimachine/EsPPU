@@ -7,7 +7,15 @@ uint8_t oam_addr = 0;
 uint16_t vram_addr = 0;
 uint8_t vram[2048];
 
-uint8_t chr[8192];
+#ifdef MAPPERS
+    #define MAX_CHR_SIZE 32768
+    uint8_t* chr_buffer = NULL;
+    uint8_t* chr = chr_buffer;
+    uint16_t mapper = 0;
+#else
+    #define MAX_CHR_SIZE 8192
+    uint8_t chr[MAX_CHR_SIZE];
+#endif
 
 uint8_t palette[32];
 
@@ -269,4 +277,23 @@ inline uint8_t nes_ppu_command(uint16_t address, uint8_t data, bool write) {
         }
     }
     return data;
+}
+
+#ifdef MAPPERS
+inline uint8_t nes_mapper_command(uint16_t address, uint8_t data, bool write) {
+    switch (mapper) {
+        case 3:
+            // for the moment we only support mapper 3 (CNROM)
+            chr = &chr_buffer[(data & 0x03) * 8192];
+            break;
+    }
+    return data;
+}
+#endif
+
+inline void ppu_init() {
+    #ifdef MAPPERS
+      chr_buffer = (uint8_t*)calloc(MAX_CHR_SIZE, 1);
+      chr = chr_buffer;
+    #endif
 }

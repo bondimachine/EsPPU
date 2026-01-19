@@ -152,6 +152,9 @@ void save_config() {
     if (horizontal_mirroring) {
       cfg_file.print("mirroring=h\n");
     }
+    #ifdef MAPPERS
+      cfg_file.print("mapper=" + String(mapper) + "\n");
+    #endif
     cfg_file.close();
   } else {
     Serial.println("failed to save config");
@@ -171,7 +174,7 @@ void load_chr() {
   }
 
   int x = 0;
-  while(chr_file.available()) {
+  while(chr_file.available() && x < MAX_CHR_SIZE) {
     chr[x++] = chr_file.read();
   }
 
@@ -194,6 +197,14 @@ bool parse_config_line(String& line) {
       } else {
         Serial.println("virtical mirroring");
       }
+    } else if (key == "mapper") {
+      #ifdef MAPPERS
+        mapper = value.toInt();
+        Serial.print("using mapper ");
+        Serial.println(mapper);
+      #else
+        Serial.println("ignoring mapper config, mappers not enabled");
+      #endif
     } else {
       Serial.print("ignoring unknown config ");
       Serial.println(line);
@@ -255,6 +266,8 @@ void setup() {
       _lines[y] = _front_buffer + y*256;
       back_buffer_lines[y] = _back_buffer + y*256;
     }
+
+    ppu_init();
 
     if (!LittleFS.begin(false)) {
       msg = "LittleFS Mount Failed";
@@ -326,6 +339,10 @@ void loop() {
               address |= ((reg >> (PIN_A3_REMAPPED) & 1) << 3)
                 | ((reg >> (PIN_A4_REMAPPED) & 1) << 4);
           }
+          #ifdef MAPPERS
+            bool mapper = (reg >> (PIN_A15_REMAPPED) & 1);
+          #endif
+
       #endif
 
       uint8_t data = 
@@ -343,6 +360,11 @@ void loop() {
       #ifndef APU
         nes_ppu_command(0x2000 | address, data, write);
       #else
+      #ifdef MAPPERS
+        if (mapper) {
+          nes_mapper_command(0x8000 | address, data, write);
+        } else 
+      #endif 
         if (as) {
           nes_apu_command(0x4000 | address, data, write);
           apu_commands++;
@@ -482,6 +504,9 @@ void poll_bus(void* ignored) {
             uint32_t reg1 = REG_READ(GPIO_IN1_REG);
             address |= ((reg1 >> (PIN_A3_REMAPPED) & 1) << 3)
               | ((reg1 >> (PIN_A4_REMAPPED) & 1) << 4)
+            #ifdef MAPPERS
+              bool mapper = (reg1 >> (PIN_A15_REMAPPED) & 1);
+            #endif
           }
       #endif
 
@@ -489,6 +514,11 @@ void poll_bus(void* ignored) {
       #ifndef APU
         data = nes_ppu_command(0x2000 | address, data, write);
       #else
+        #ifdef MAPPERS
+          if (mapper) {
+            nes_mapper_command(0x8000 | address, data, write);
+          } else 
+        #endif 
         if (as) {
           data = nes_apu_command(0x4000 | address, data, write);
         } else {

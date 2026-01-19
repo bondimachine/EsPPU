@@ -58,3 +58,9 @@ Audio output should pass thru a simple rc filter
                   |
                   v gnd
 ```
+
+## Mappers
+
+To support mapper 3, connect A15 to D36; and ensure AS goes down also when writing in 0x8000-0xFFFF.
+
+APU must be enabled.

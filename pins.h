@@ -57,9 +57,13 @@ D26     - /AS
 #define PIN_AOUT 33
 #define PIN_AS 26
 
+#define PIN_A15 36 // for CHRROM banking if needed
+
 // matches the bit number in IN1
 #define PIN_A3_REMAPPED 7 
 #define PIN_A4_REMAPPED 3
+#define PIN_A15_REMAPPED 4
+
 
 #define PIN_A3_OUT 25
 #define PIN_A4_OUT 12
